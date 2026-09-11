@@ -40,3 +40,4 @@ yarn-error.log*
 # Cache and tool artifacts
 graphify-out/
 .gemini/
+GEMINI.md
