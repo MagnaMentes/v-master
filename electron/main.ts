@@ -113,8 +113,16 @@ app.whenReady().then(() => {
     });
 
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      console.warn('Auto-updater check failed:', err?.message || err);
+      console.warn('Auto-updater initial check failed:', err?.message || err);
     });
+
+    // Periodically check for updates during runtime (test interval: 1 minute)
+    const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
+    setInterval(() => {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.warn('Auto-updater periodic check failed:', err?.message || err);
+      });
+    }, UPDATE_CHECK_INTERVAL_MS);
   }
 });
 
