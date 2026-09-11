@@ -15,6 +15,7 @@ import {
   Lock,
   ArrowUpCircle,
   RefreshCw,
+  Heart,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { ServerModal } from './ServerModal';
@@ -344,8 +345,18 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Footer Info */}
-      <div className="p-3 border-t border-[#D4D4D4] dark:border-[#2E2E32] text-[11px] text-zinc-400 flex items-center justify-center text-center">
-        <span>V-Master v{__APP_VERSION__}</span>
+      <div className="p-2.5 px-3 border-t border-[#D4D4D4] dark:border-[#2E2E32] text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center justify-between gap-2">
+        <span className="truncate select-none font-medium">V-Master v{__APP_VERSION__}</span>
+        <button
+          onClick={() => {
+            window.api?.system?.openExternal('https://send.monobank.ua/jar/6s5yE12CxH');
+          }}
+          title="Підтримати проєкт V-Master"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-700 dark:hover:text-rose-300 transition-colors shrink-0"
+        >
+          <Heart className="w-3.5 h-3.5 fill-rose-500/20 text-rose-500" />
+          <span>Підтримати V-Master</span>
+        </button>
       </div>
 
       {/* Server Modal */}
