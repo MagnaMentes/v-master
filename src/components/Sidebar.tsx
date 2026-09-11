@@ -346,13 +346,6 @@ export const Sidebar: React.FC = () => {
       {/* Footer Info */}
       <div className="p-3 border-t border-[#D4D4D4] dark:border-[#2E2E32] text-[11px] text-zinc-400 flex items-center justify-between">
         <span>V-Master v{__APP_VERSION__}</span>
-        <button
-          onClick={() => setIsServerModalOpen(true)}
-          className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-        >
-          <Plus className="w-3 h-3" />
-          <span>Сервер</span>
-        </button>
       </div>
 
       {/* Server Modal */}
