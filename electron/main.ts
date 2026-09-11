@@ -34,6 +34,7 @@ function createWindow() {
     minHeight: 650,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
+    icon: path.join(__dirname, '../public/icon.png'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1E1E1E' : '#F6F6F6',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
