@@ -53,6 +53,7 @@
     "appId": "com.vmaster.app",
     "productName": "V-Master",
     "copyright": "Copyright © 2026 magna_mentes",
+    "compression": "maximum",
     "directories": {
       "output": "release"
     },
@@ -64,10 +65,6 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
       "target": [
-        {
-          "target": "dmg",
-          "arch": ["arm64"]
-        },
         {
           "target": "zip",
           "arch": ["arm64"]
