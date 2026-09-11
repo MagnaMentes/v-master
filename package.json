@@ -1,6 +1,6 @@
 {
   "name": "v-master",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "macOS application for Proxmox VE and Ubuntu VM terminal administration",
   "main": "dist-electron/main.js",
