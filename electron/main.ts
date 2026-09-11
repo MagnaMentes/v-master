@@ -296,8 +296,22 @@ function registerIpcHandlers() {
 
   // App Update Actions
   ipcMain.handle('app-update:installNow', () => {
-    setImmediate(() => {
+    try {
+      ssh.disconnectAll();
+    } catch {
+      // ignore
+    }
+
+    try {
       autoUpdater.quitAndInstall(false, true);
-    });
+    } catch (err) {
+      console.warn('quitAndInstall failed, falling back to relaunch:', err);
+    }
+
+    // Safety fallback: if Squirrel.Mac does not terminate the app within 1s, force relaunch and exit
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 1000);
   });
 }
