@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
+import fs from 'fs';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { AppStore } from './store';
 import { ProxmoxService } from './proxmox';
@@ -18,6 +20,7 @@ process.env.DIST = distDir;
 process.env.VITE_PUBLIC = app.isPackaged ? distDir : path.join(distDir, '../public');
 
 let win: BrowserWindow | null = null;
+let downloadedZipPath: string | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 const store = new AppStore();
@@ -106,7 +109,19 @@ app.whenReady().then(() => {
       }
     });
 
-    autoUpdater.on('update-downloaded', (info) => {
+    autoUpdater.on('update-downloaded', (info: any) => {
+      const cacheDir = path.join(app.getPath('home'), 'Library/Caches', 'v-master-updater');
+      const pendingZip = path.join(cacheDir, 'pending', `V-Master-${info.version}-arm64-mac.zip`);
+      const directZip = path.join(cacheDir, 'update.zip');
+
+      if (info.downloadedFile && fs.existsSync(info.downloadedFile)) {
+        downloadedZipPath = info.downloadedFile;
+      } else if (fs.existsSync(pendingZip)) {
+        downloadedZipPath = pendingZip;
+      } else if (fs.existsSync(directZip)) {
+        downloadedZipPath = directZip;
+      }
+
       if (win && !win.isDestroyed()) {
         win.webContents.send('app-update:downloaded', info);
       }
@@ -310,13 +325,49 @@ function registerIpcHandlers() {
       // ignore
     }
 
+    // On macOS without Apple Developer ID signing, Squirrel.Mac fails silently to replace running .app.
+    // We provide a guaranteed in-place replacement and restart script.
+    if (process.platform === 'darwin' && downloadedZipPath && fs.existsSync(downloadedZipPath)) {
+      try {
+        const appBundlePath = app.getPath('exe').replace(/\/Contents\/MacOS\/.*$/, '');
+        const currentPid = process.pid;
+        const zipFile = downloadedZipPath;
+
+        const script = `
+          while kill -0 ${currentPid} 2>/dev/null; do
+            sleep 0.1
+          done
+          TMP_EXTRACT=$(mktemp -d)
+          unzip -q -o "${zipFile}" -d "$TMP_EXTRACT"
+          NEW_APP=$(find "$TMP_EXTRACT" -maxdepth 2 -name "*.app" | head -n 1)
+          if [ -n "$NEW_APP" ] && [ -d "$NEW_APP" ]; then
+            xattr -rd com.apple.quarantine "$NEW_APP" 2>/dev/null || true
+            rm -rf "${appBundlePath}"
+            ditto "$NEW_APP" "${appBundlePath}"
+            rm -rf "$TMP_EXTRACT"
+            open -n "${appBundlePath}"
+          fi
+        `;
+
+        const helper = spawn('/bin/sh', ['-c', script], {
+          detached: true,
+          stdio: 'ignore',
+        });
+        helper.unref();
+
+        app.exit(0);
+        return;
+      } catch (err) {
+        console.error('Custom macOS installer failed:', err);
+      }
+    }
+
     try {
       autoUpdater.quitAndInstall(false, true);
     } catch (err) {
-      console.warn('quitAndInstall failed, falling back to relaunch:', err);
+      console.warn('quitAndInstall failed:', err);
     }
 
-    // Safety fallback: if Squirrel.Mac does not terminate the app within 1s, force relaunch and exit
     setTimeout(() => {
       app.relaunch();
       app.exit(0);
