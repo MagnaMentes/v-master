@@ -87,29 +87,19 @@ app.whenReady().then(() => {
 
     autoUpdater.on('update-available', (info) => {
       if (win && !win.isDestroyed()) {
-        dialog.showMessageBox(win, {
-          type: 'info',
-          title: 'Доступне оновлення',
-          message: `Знайдено нову версію V-Master v${info.version}! Вона завантажується у фоні.`,
-        });
+        win.webContents.send('app-update:available', info);
+      }
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('app-update:progress', progress);
       }
     });
 
     autoUpdater.on('update-downloaded', (info) => {
       if (win && !win.isDestroyed()) {
-        dialog
-          .showMessageBox(win, {
-            type: 'info',
-            title: 'Оновлення готове до встановлення',
-            message: `Версію v${info.version} успішно завантажено. Перезапустити V-Master для оновлення?`,
-            buttons: ['Перезапустити зараз', 'Оновити при закритті'],
-            defaultId: 0,
-          })
-          .then((choice) => {
-            if (choice.response === 0) {
-              autoUpdater.quitAndInstall();
-            }
-          });
+        win.webContents.send('app-update:downloaded', info);
       }
     });
 
@@ -293,5 +283,10 @@ function registerIpcHandlers() {
     if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
       shell.openExternal(url);
     }
+  });
+
+  // App Update Actions
+  ipcMain.handle('app-update:installNow', () => {
+    autoUpdater.quitAndInstall();
   });
 }

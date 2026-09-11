@@ -9,6 +9,7 @@ import { TerminalView } from './components/TerminalView';
 import { SFTPView } from './components/SFTPView';
 import { SnippetsView } from './components/SnippetsView';
 import { SettingsView } from './components/SettingsView';
+import { AppUpdateToast } from './components/AppUpdateToast';
 
 const MainContent: React.FC = () => {
   const { activeView, selectedVM } = useApp();
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
             <Sidebar />
             <MainContent />
           </div>
+          <AppUpdateToast />
         </div>
       </AppProvider>
     </ThemeProvider>

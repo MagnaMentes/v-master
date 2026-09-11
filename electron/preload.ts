@@ -184,6 +184,26 @@ const api = {
       return () => ipcRenderer.removeListener('system:themeChanged', handler);
     },
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url),
+  },
+
+  // App Update (In-App)
+  appUpdate: {
+    onAvailable: (callback: (info: any) => void) => {
+      const handler = (_event: IpcRendererEvent, info: any) => callback(info);
+      ipcRenderer.on('app-update:available', handler);
+      return () => ipcRenderer.removeListener('app-update:available', handler);
+    },
+    onProgress: (callback: (progress: any) => void) => {
+      const handler = (_event: IpcRendererEvent, progress: any) => callback(progress);
+      ipcRenderer.on('app-update:progress', handler);
+      return () => ipcRenderer.removeListener('app-update:progress', handler);
+    },
+    onDownloaded: (callback: (info: any) => void) => {
+      const handler = (_event: IpcRendererEvent, info: any) => callback(info);
+      ipcRenderer.on('app-update:downloaded', handler);
+      return () => ipcRenderer.removeListener('app-update:downloaded', handler);
+    },
+    installNow: (): Promise<void> => ipcRenderer.invoke('app-update:installNow'),
   }
 };
 

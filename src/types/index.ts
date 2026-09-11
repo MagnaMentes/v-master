@@ -213,6 +213,23 @@ export interface VMResourceAlert {
   severity: 'warning' | 'critical';
 }
 
+export interface AppUpdateInfo {
+  version: string;
+  files?: any[];
+  path?: string;
+  sha512?: string;
+  releaseDate?: string;
+  releaseName?: string;
+  releaseNotes?: string | any[];
+}
+
+export interface AppUpdateProgress {
+  bytesPerSecond: number;
+  percent: number;
+  total: number;
+  transferred: number;
+}
+
 export interface WindowApi {
   store: {
     getServers: () => Promise<ProxmoxServerConfig[]>;
@@ -318,6 +335,12 @@ export interface WindowApi {
     setThemeSource: (mode: 'system' | 'light' | 'dark') => Promise<void>;
     onThemeChange: (callback: (isDark: boolean) => void) => () => void;
     openExternal: (url: string) => Promise<void>;
+  };
+  appUpdate: {
+    onAvailable: (callback: (info: AppUpdateInfo) => void) => () => void;
+    onProgress: (callback: (progress: AppUpdateProgress) => void) => () => void;
+    onDownloaded: (callback: (info: AppUpdateInfo) => void) => () => void;
+    installNow: () => Promise<void>;
   };
 }
 
