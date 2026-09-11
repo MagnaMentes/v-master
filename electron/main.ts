@@ -296,6 +296,8 @@ function registerIpcHandlers() {
 
   // App Update Actions
   ipcMain.handle('app-update:installNow', () => {
-    autoUpdater.quitAndInstall();
+    setImmediate(() => {
+      autoUpdater.quitAndInstall(false, true);
+    });
   });
 }
