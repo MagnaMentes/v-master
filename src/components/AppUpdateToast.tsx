@@ -48,6 +48,47 @@ export const AppUpdateToast: React.FC = () => {
 
   const percent = progress?.percent ? Math.round(progress.percent) : null;
 
+  const renderReleaseNotes = () => {
+    if (!updateInfo.releaseNotes) return null;
+
+    let notesText = '';
+    if (typeof updateInfo.releaseNotes === 'string') {
+      notesText = updateInfo.releaseNotes;
+    } else if (Array.isArray(updateInfo.releaseNotes)) {
+      notesText = updateInfo.releaseNotes
+        .map((n: any) => (typeof n === 'string' ? n : n.note || ''))
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    if (!notesText.trim()) return null;
+
+    // Remove markdown headers/formatting noise for clean presentation
+    const cleanLines = notesText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith('#'))
+      .slice(0, 5);
+
+    if (cleanLines.length === 0) return null;
+
+    return (
+      <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-2.5 text-[11px] border border-zinc-200/70 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-300">
+        <div className="font-semibold text-zinc-700 dark:text-zinc-200 mb-1 flex items-center gap-1.5">
+          <span>Що нового:</span>
+        </div>
+        <ul className="space-y-1 pl-1">
+          {cleanLines.map((line, idx) => (
+            <li key={idx} className="flex items-start gap-1.5 leading-tight">
+              <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">•</span>
+              <span className="truncate">{line.replace(/^-\s*/, '')}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   return (
     <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-in fade-in slide-in-from-bottom-5 duration-300">
       <div className="bg-white/95 dark:bg-[#202024]/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 text-zinc-900 dark:text-zinc-100 flex flex-col gap-3">
@@ -79,6 +120,8 @@ export const AppUpdateToast: React.FC = () => {
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {renderReleaseNotes()}
 
         {!isDownloaded && percent !== null && (
           <div className="flex flex-col gap-1.5">
