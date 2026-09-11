@@ -341,6 +341,7 @@ export interface WindowApi {
     onProgress: (callback: (progress: AppUpdateProgress) => void) => () => void;
     onDownloaded: (callback: (info: AppUpdateInfo) => void) => () => void;
     installNow: () => Promise<void>;
+    getReleaseNotes: (version: string) => Promise<string | null>;
   };
 }
 

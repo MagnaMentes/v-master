@@ -317,6 +317,20 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('app-update:getReleaseNotes', async (_e, version: string) => {
+    try {
+      const tag = version.startsWith('v') ? version : `v${version}`;
+      const res = await fetch(`https://api.github.com/repos/MagnaMentes/v-master/releases/tags/${tag}`, {
+        headers: { 'User-Agent': 'V-Master-App' },
+      });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      return data.body || null;
+    } catch {
+      return null;
+    }
+  });
+
   // App Update Actions
   ipcMain.handle('app-update:installNow', () => {
     try {

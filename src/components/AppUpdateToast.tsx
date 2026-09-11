@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DownloadCloud, CheckCircle2, RefreshCw, X } from 'lucide-react';
+import { DownloadCloud, CheckCircle2, RefreshCw, Sparkles, X } from 'lucide-react';
 import type { AppUpdateInfo, AppUpdateProgress } from '../types';
 
 export const AppUpdateToast: React.FC = () => {
@@ -9,12 +9,47 @@ export const AppUpdateToast: React.FC = () => {
   const [isDismissed, setIsDismissed] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
 
+  // Post-update announcement state
+  const [postUpdateNotes, setPostUpdateNotes] = useState<string | null>(null);
+  const [showPostUpdateToast, setShowPostUpdateToast] = useState(false);
+
   useEffect(() => {
+    // Check if app was just updated to a newer version
+    const lastVersion = localStorage.getItem('vmaster_last_version');
+    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.12';
+
+    if (lastVersion && lastVersion !== currentVersion) {
+      const cachedNotes = localStorage.getItem(`vmaster_notes_${currentVersion}`);
+      if (cachedNotes) {
+        setPostUpdateNotes(cachedNotes);
+        setShowPostUpdateToast(true);
+      } else if (window.api?.appUpdate?.getReleaseNotes) {
+        window.api.appUpdate.getReleaseNotes(currentVersion).then((notes) => {
+          if (notes) {
+            setPostUpdateNotes(notes);
+            setShowPostUpdateToast(true);
+          }
+        });
+      }
+    }
+    localStorage.setItem('vmaster_last_version', currentVersion);
+
     if (!window.api?.appUpdate) return;
 
     const unAvailable = window.api.appUpdate.onAvailable((info) => {
       setUpdateInfo(info);
       setIsDismissed(false);
+      setShowPostUpdateToast(false);
+      if (info.releaseNotes) {
+        const text = typeof info.releaseNotes === 'string'
+          ? info.releaseNotes
+          : Array.isArray(info.releaseNotes)
+          ? info.releaseNotes.map((n: any) => (typeof n === 'string' ? n : n.note || '')).join('\n')
+          : '';
+        if (text) {
+          localStorage.setItem(`vmaster_notes_${info.version}`, text);
+        }
+      }
     });
 
     const unProgress = window.api.appUpdate.onProgress((prog) => {
@@ -25,6 +60,17 @@ export const AppUpdateToast: React.FC = () => {
       setUpdateInfo(info);
       setIsDownloaded(true);
       setIsDismissed(false);
+      setShowPostUpdateToast(false);
+      if (info.releaseNotes) {
+        const text = typeof info.releaseNotes === 'string'
+          ? info.releaseNotes
+          : Array.isArray(info.releaseNotes)
+          ? info.releaseNotes.map((n: any) => (typeof n === 'string' ? n : n.note || '')).join('\n')
+          : '';
+        if (text) {
+          localStorage.setItem(`vmaster_notes_${info.version}`, text);
+        }
+      }
     });
 
     return () => {
@@ -34,42 +80,34 @@ export const AppUpdateToast: React.FC = () => {
     };
   }, []);
 
-  if (isDismissed || !updateInfo) return null;
-
-  const handleInstallNow = async () => {
-    setIsInstalling(true);
-    try {
-      await window.api.appUpdate.installNow();
-    } catch (err) {
-      console.error('Failed to trigger install:', err);
-      setIsInstalling(false);
-    }
+  const handleDismissPostUpdate = () => {
+    setShowPostUpdateToast(false);
   };
 
-  const percent = progress?.percent ? Math.round(progress.percent) : null;
+  const parseCleanLines = (notesText: string) => {
+    return notesText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith('#'))
+      .slice(0, 6);
+  };
 
-  const renderReleaseNotes = () => {
-    if (!updateInfo.releaseNotes) return null;
+  const renderReleaseNotes = (notesSource?: any) => {
+    const raw = notesSource || updateInfo?.releaseNotes;
+    if (!raw) return null;
 
     let notesText = '';
-    if (typeof updateInfo.releaseNotes === 'string') {
-      notesText = updateInfo.releaseNotes;
-    } else if (Array.isArray(updateInfo.releaseNotes)) {
-      notesText = updateInfo.releaseNotes
+    if (typeof raw === 'string') {
+      notesText = raw;
+    } else if (Array.isArray(raw)) {
+      notesText = raw
         .map((n: any) => (typeof n === 'string' ? n : n.note || ''))
         .filter(Boolean)
         .join('\n');
     }
 
     if (!notesText.trim()) return null;
-
-    // Remove markdown headers/formatting noise for clean presentation
-    const cleanLines = notesText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0 && !l.startsWith('#'))
-      .slice(0, 5);
-
+    const cleanLines = parseCleanLines(notesText);
     if (cleanLines.length === 0) return null;
 
     return (
@@ -88,6 +126,65 @@ export const AppUpdateToast: React.FC = () => {
       </div>
     );
   };
+
+  const handleInstallNow = async () => {
+    setIsInstalling(true);
+    try {
+      await window.api.appUpdate.installNow();
+    } catch (err) {
+      console.error('Failed to trigger install:', err);
+      setIsInstalling(false);
+    }
+  };
+
+  const percent = progress?.percent ? Math.round(progress.percent) : null;
+
+  // 1. Post-update "What's New" celebratory toast
+  if (showPostUpdateToast && postUpdateNotes && !updateInfo) {
+    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.12';
+    return (
+      <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <div className="bg-white/95 dark:bg-[#202024]/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 text-zinc-900 dark:text-zinc-100 flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  Успішно оновлено!
+                </h4>
+                <p className="text-sm font-medium">
+                  V-Master v{currentVersion}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDismissPostUpdate}
+              aria-label="Закрити"
+              className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {renderReleaseNotes(postUpdateNotes)}
+
+          <div className="flex justify-end pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
+            <button
+              onClick={handleDismissPostUpdate}
+              className="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+            >
+              Зрозуміло
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Pre-update (downloading or ready to restart) toast
+  if (isDismissed || !updateInfo) return null;
 
   return (
     <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-in fade-in slide-in-from-bottom-5 duration-300">

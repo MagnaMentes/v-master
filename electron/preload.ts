@@ -204,6 +204,8 @@ const api = {
       return () => ipcRenderer.removeListener('app-update:downloaded', handler);
     },
     installNow: (): Promise<void> => ipcRenderer.invoke('app-update:installNow'),
+    getReleaseNotes: (version: string): Promise<string | null> =>
+      ipcRenderer.invoke('app-update:getReleaseNotes', version),
   }
 };
 
