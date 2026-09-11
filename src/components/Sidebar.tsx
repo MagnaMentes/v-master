@@ -344,7 +344,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Footer Info */}
-      <div className="p-3 border-t border-[#D4D4D4] dark:border-[#2E2E32] text-[11px] text-zinc-400 flex items-center justify-between">
+      <div className="p-3 border-t border-[#D4D4D4] dark:border-[#2E2E32] text-[11px] text-zinc-400 flex items-center justify-center text-center">
         <span>V-Master v{__APP_VERSION__}</span>
       </div>
 
