@@ -1,0 +1,190 @@
+// @ts-ignore
+const { contextBridge, ipcRenderer } = require('electron');
+import type { IpcRendererEvent } from 'electron';
+import type {
+  ProxmoxServerConfig,
+  SSHProfile,
+  Snippet,
+  AppSettings,
+  ProxmoxNode,
+  ProxmoxVM,
+  VMMetrics,
+  VMSnapshot,
+  SFTPItem,
+} from '../src/types';
+
+const api = {
+  // Store
+  store: {
+    getServers: (): Promise<ProxmoxServerConfig[]> => ipcRenderer.invoke('store:getServers'),
+    saveServer: (server: ProxmoxServerConfig): Promise<void> => ipcRenderer.invoke('store:saveServer', server),
+    deleteServer: (id: string): Promise<void> => ipcRenderer.invoke('store:deleteServer', id),
+    getSSHProfiles: (): Promise<SSHProfile[]> => ipcRenderer.invoke('store:getSSHProfiles'),
+    saveSSHProfile: (profile: SSHProfile): Promise<void> => ipcRenderer.invoke('store:saveSSHProfile', profile),
+    deleteSSHProfile: (id: string): Promise<void> => ipcRenderer.invoke('store:deleteSSHProfile', id),
+    getSnippets: (): Promise<Snippet[]> => ipcRenderer.invoke('store:getSnippets'),
+    saveSnippet: (snippet: Snippet): Promise<void> => ipcRenderer.invoke('store:saveSnippet', snippet),
+    deleteSnippet: (id: string): Promise<void> => ipcRenderer.invoke('store:deleteSnippet', id),
+    getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('store:getSettings'),
+    saveSettings: (settings: Partial<AppSettings>): Promise<void> => ipcRenderer.invoke('store:saveSettings', settings),
+  },
+
+  // Proxmox API
+  proxmox: {
+    testConnection: (config: ProxmoxServerConfig): Promise<{ success: boolean; version?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:testConnection', config),
+    getNodes: (config: ProxmoxServerConfig): Promise<ProxmoxNode[]> =>
+      ipcRenderer.invoke('proxmox:getNodes', config),
+    getVMs: (config: ProxmoxServerConfig, node: string): Promise<ProxmoxVM[]> =>
+      ipcRenderer.invoke('proxmox:getVMs', config, node),
+    getVMMetrics: (config: ProxmoxServerConfig, node: string, vmid: number): Promise<VMMetrics> =>
+      ipcRenderer.invoke('proxmox:getVMMetrics', config, node, vmid),
+    executeVMAction: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume'
+    ): Promise<{ success: boolean; taskId?: string }> =>
+      ipcRenderer.invoke('proxmox:executeVMAction', config, node, vmid, action),
+    getSnapshots: (config: ProxmoxServerConfig, node: string, vmid: number): Promise<VMSnapshot[]> =>
+      ipcRenderer.invoke('proxmox:getSnapshots', config, node, vmid),
+    createSnapshot: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      snapname: string,
+      description?: string,
+      vmstate?: boolean
+    ): Promise<{ success: boolean; taskId?: string }> =>
+      ipcRenderer.invoke('proxmox:createSnapshot', config, node, vmid, snapname, description, vmstate),
+    rollbackSnapshot: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      snapname: string
+    ): Promise<{ success: boolean; taskId?: string }> =>
+      ipcRenderer.invoke('proxmox:rollbackSnapshot', config, node, vmid, snapname),
+    deleteSnapshot: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      snapname: string
+    ): Promise<{ success: boolean; taskId?: string }> =>
+      ipcRenderer.invoke('proxmox:deleteSnapshot', config, node, vmid, snapname),
+    getTermproxyTicket: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid?: number
+    ): Promise<{ ticket: string; port: number; user: string }> =>
+      ipcRenderer.invoke('proxmox:getTermproxyTicket', config, node, vmid),
+    getNodeStatus: (config: ProxmoxServerConfig, node: string): Promise<any> =>
+      ipcRenderer.invoke('proxmox:getNodeStatus', config, node),
+    getNodeServices: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeServices', config, node),
+    restartNodeService: (config: ProxmoxServerConfig, node: string, service: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:restartNodeService', config, node, service),
+    executeNodeAction: (config: ProxmoxServerConfig, node: string, action: 'reboot' | 'shutdown'): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:executeNodeAction', config, node, action),
+    getNodeUpdates: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeUpdates', config, node),
+    refreshNodeUpdates: (config: ProxmoxServerConfig, node: string): Promise<{ success: boolean; taskId?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:refreshNodeUpdates', config, node),
+  },
+
+  // SSH Terminal
+  ssh: {
+    connect: (sessionId: string, profile: SSHProfile, rows: number, cols: number): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('ssh:connect', sessionId, profile, rows, cols),
+    write: (sessionId: string, data: string): void => {
+      ipcRenderer.send('ssh:write', sessionId, data);
+    },
+    resize: (sessionId: string, rows: number, cols: number): void => {
+      ipcRenderer.send('ssh:resize', sessionId, rows, cols);
+    },
+    disconnect: (sessionId: string): void => {
+      ipcRenderer.send('ssh:disconnect', sessionId);
+    },
+    onData: (callback: (sessionId: string, data: string) => void) => {
+      const handler = (_event: IpcRendererEvent, sId: string, data: string) => callback(sId, data);
+      ipcRenderer.on('ssh:data', handler);
+      return () => ipcRenderer.removeListener('ssh:data', handler);
+    },
+    onClosed: (callback: (sessionId: string) => void) => {
+      const handler = (_event: IpcRendererEvent, sId: string) => callback(sId);
+      ipcRenderer.on('ssh:closed', handler);
+      return () => ipcRenderer.removeListener('ssh:closed', handler);
+    },
+    onError: (callback: (sessionId: string, error: string) => void) => {
+      const handler = (_event: IpcRendererEvent, sId: string, error: string) => callback(sId, error);
+      ipcRenderer.on('ssh:error', handler);
+      return () => ipcRenderer.removeListener('ssh:error', handler);
+    },
+    getSystemDefaults: (host?: string): Promise<{ username: string; privateKeyPath?: string }> =>
+      ipcRenderer.invoke('ssh:getSystemDefaults', host),
+    testConnection: (profile: SSHProfile): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('ssh:testConnection', profile),
+  },
+
+  // System Updates
+  updates: {
+    checkUpdates: (profile: SSHProfile): Promise<{ success: boolean; updates: any[]; error?: string }> =>
+      ipcRenderer.invoke('updates:checkUpdates', profile),
+    installUpdate: (
+      profile: SSHProfile,
+      packageName: string,
+      sudoPassword?: string
+    ): Promise<{ success: boolean; output?: string; error?: string }> =>
+      ipcRenderer.invoke('updates:installUpdate', profile, packageName, sudoPassword),
+    installAllSafeUpdates: (
+      profile: SSHProfile,
+      packageNames: string[],
+      sudoPassword?: string
+    ): Promise<{ success: boolean; installed: string[]; output?: string; error?: string }> =>
+      ipcRenderer.invoke('updates:installAllSafeUpdates', profile, packageNames, sudoPassword),
+  },
+
+  // SFTP Browser
+  sftp: {
+    list: (profile: SSHProfile, remotePath: string): Promise<SFTPItem[]> =>
+      ipcRenderer.invoke('sftp:list', profile, remotePath),
+    download: (profile: SSHProfile, remotePath: string, localPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('sftp:download', profile, remotePath, localPath),
+    upload: (profile: SSHProfile, localPath: string, remotePath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('sftp:upload', profile, localPath, remotePath),
+    delete: (profile: SSHProfile, remotePath: string, isDir: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('sftp:delete', profile, remotePath, isDir),
+    mkdir: (profile: SSHProfile, remotePath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('sftp:mkdir', profile, remotePath),
+    selectLocalFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectLocalFile'),
+    selectLocalSavePath: (defaultFilename: string): Promise<string | null> =>
+      ipcRenderer.invoke('dialog:selectLocalSavePath', defaultFilename),
+  },
+
+  // Resource Diagnostics
+  diagnostics: {
+    getDiagnostics: (profile: SSHProfile): Promise<{ success: boolean; data?: any; error?: string }> =>
+      ipcRenderer.invoke('diagnostics:getDiagnostics', profile),
+    manageProcess: (
+      profile: SSHProfile,
+      action: 'kill' | 'kill-9' | 'restart-service',
+      target: string,
+      sudoPassword?: string
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('diagnostics:manageProcess', profile, action, target, sudoPassword),
+  },
+
+  // App & Theme
+  system: {
+    getTheme: (): Promise<'dark' | 'light'> => ipcRenderer.invoke('system:getTheme'),
+    setThemeSource: (mode: 'system' | 'light' | 'dark'): Promise<void> =>
+      ipcRenderer.invoke('system:setThemeSource', mode),
+    onThemeChange: (callback: (isDark: boolean) => void) => {
+      const handler = (_event: IpcRendererEvent, isDark: boolean) => callback(isDark);
+      ipcRenderer.on('system:themeChanged', handler);
+      return () => ipcRenderer.removeListener('system:themeChanged', handler);
+    },
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url),
+  }
+};
+
+contextBridge.exposeInMainWorld('api', api);

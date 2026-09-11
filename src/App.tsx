@@ -1,0 +1,46 @@
+import React from 'react';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { AppProvider, useApp } from './contexts/AppContext';
+import { TitleBar } from './components/TitleBar';
+import { Sidebar } from './components/Sidebar';
+import { DashboardView } from './components/DashboardView';
+import { VMDetailView } from './components/VMDetailView';
+import { TerminalView } from './components/TerminalView';
+import { SFTPView } from './components/SFTPView';
+import { SnippetsView } from './components/SnippetsView';
+import { SettingsView } from './components/SettingsView';
+
+const MainContent: React.FC = () => {
+  const { activeView, selectedVM } = useApp();
+
+  return (
+    <main className="flex-1 flex overflow-hidden">
+      <div key={activeView} className="flex-1 flex overflow-hidden view-animate">
+        {activeView === 'dashboard' && <DashboardView />}
+        {activeView === 'vm-detail' && selectedVM && <VMDetailView key={selectedVM.vmid} />}
+        {activeView === 'terminal' && <TerminalView />}
+        {activeView === 'sftp' && <SFTPView />}
+        {activeView === 'snippets' && <SnippetsView />}
+        {activeView === 'settings' && <SettingsView />}
+      </div>
+    </main>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppProvider>
+        <div className="flex flex-col h-screen w-screen overflow-hidden antialiased bg-[#F6F6F6] dark:bg-[#18181B] text-zinc-800 dark:text-zinc-100 transition-colors duration-200">
+          <TitleBar />
+          <div className="flex-1 flex overflow-hidden">
+            <Sidebar />
+            <MainContent />
+          </div>
+        </div>
+      </AppProvider>
+    </ThemeProvider>
+  );
+};
+
+export default App;
