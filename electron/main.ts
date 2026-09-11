@@ -84,6 +84,35 @@ app.whenReady().then(() => {
   if (app.isPackaged) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('update-available', (info) => {
+      if (win && !win.isDestroyed()) {
+        dialog.showMessageBox(win, {
+          type: 'info',
+          title: 'Доступне оновлення',
+          message: `Знайдено нову версію V-Master v${info.version}! Вона завантажується у фоні.`,
+        });
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      if (win && !win.isDestroyed()) {
+        dialog
+          .showMessageBox(win, {
+            type: 'info',
+            title: 'Оновлення готове до встановлення',
+            message: `Версію v${info.version} успішно завантажено. Перезапустити V-Master для оновлення?`,
+            buttons: ['Перезапустити зараз', 'Оновити при закритті'],
+            defaultId: 0,
+          })
+          .then((choice) => {
+            if (choice.response === 0) {
+              autoUpdater.quitAndInstall();
+            }
+          });
+      }
+    });
+
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
       console.warn('Auto-updater check failed:', err?.message || err);
     });
