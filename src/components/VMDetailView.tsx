@@ -39,6 +39,7 @@ export const VMDetailView: React.FC = () => {
     updateVMOSMetrics,
     checkVMUpdates,
     installVMUpdate,
+    installAllSafeVMUpdates,
     saveSSHProfile,
     openTerminalForVM,
     refreshClusterData,
@@ -301,79 +302,48 @@ export const VMDetailView: React.FC = () => {
     }
 
     setBatchProgress({
-      current: 0,
+      current: 1,
       total: safePackages.length,
-      currentPackage: safePackages[0],
-      percent: 0,
+      currentPackage: safePackages.join(', '),
+      percent: 30,
     });
     setUpdateStatusMsg(null);
 
-    let successCount = 0;
-    const errors: string[] = [];
-
-    for (let i = 0; i < safePackages.length; i++) {
-      const pkg = safePackages[i];
-      setBatchProgress({
-        current: i + 1,
-        total: safePackages.length,
-        currentPackage: pkg,
-        percent: Math.round(((i) / safePackages.length) * 100),
-      });
-
-      let res = await installVMUpdate(selectedVM.vmid, pkg, pass);
-      // If SSH dropped/restarting during update, pause and retry once
-      if (!res.success && (res.error?.includes('ECONNREFUSED') || res.error?.includes('ETIMEDOUT'))) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        res = await installVMUpdate(selectedVM.vmid, pkg, pass);
-      }
+    try {
+      const res = await installAllSafeVMUpdates(selectedVM.vmid, safePackages, pass);
 
       if (res.success) {
-        successCount++;
         setLocallyInstalled((prev) => ({
           ...prev,
-          [selectedVM.vmid]: [...(prev[selectedVM.vmid] || []), pkg],
+          [selectedVM.vmid]: [...(prev[selectedVM.vmid] || []), ...safePackages],
         }));
+        setBatchProgress({
+          current: safePackages.length,
+          total: safePackages.length,
+          currentPackage: 'Завершено',
+          percent: 100,
+        });
+        setUpdateStatusMsg({
+          type: 'success',
+          text: `Успішно оновлено всі ${res.installedCount || safePackages.length} компонентів в єдиній сесії!`,
+        });
       } else {
         if (res.error?.includes('password is required') || res.error?.includes('incorrect password')) {
           setSudoPassword('');
-          setBatchProgress(null);
           setUpdateStatusMsg({
             type: 'error',
             text: 'Невірний або відсутній sudo пароль. Введіть коректний пароль користувача.',
           });
           return;
         }
-        errors.push(`${pkg}: ${res.error || 'помилка'}`);
+        setUpdateStatusMsg({
+          type: 'error',
+          text: res.error || 'Помилка пакетного оновлення компонентів.',
+        });
       }
-
-      setBatchProgress({
-        current: i + 1,
-        total: safePackages.length,
-        currentPackage: pkg,
-        percent: Math.round(((i + 1) / safePackages.length) * 100),
-      });
-    }
-
-    setBatchProgress(null);
-
-    // Refresh actual update list from VM
-    checkVMUpdates(selectedVM.vmid);
-
-    if (successCount === safePackages.length) {
-      setUpdateStatusMsg({
-        type: 'success',
-        text: `Успішно оновлено всі ${successCount} компонентів!`,
-      });
-    } else if (successCount > 0) {
-      setUpdateStatusMsg({
-        type: 'error',
-        text: `Оновлено ${successCount} з ${safePackages.length}. Помилка: ${errors[0] || 'не вдалося оновити окремі компоненти'}`,
-      });
-    } else {
-      setUpdateStatusMsg({
-        type: 'error',
-        text: errors[0] || 'Помилка оновлення компонентів. Перевірте доступ та стан APT.',
-      });
+    } finally {
+      setBatchProgress(null);
+      checkVMUpdates(selectedVM.vmid);
     }
   };
 

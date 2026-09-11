@@ -274,9 +274,37 @@ export class UpdateService {
         };
       } catch (err: any) {
         lastError = err.message || 'Помилка масового оновлення';
-        if (this.isConnectionDropError(lastError) && attempt < 3) {
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          continue;
+        if (this.isConnectionDropError(lastError)) {
+          // Wait for system services (like sshd or libc-bin triggers) to finish restart
+          await new Promise((resolve) => setTimeout(resolve, 8000));
+          // Check which packages actually succeeded
+          const verifiedInstalled: string[] = [];
+          for (const pkg of safePackages) {
+            const isInstalled = await this.isPackageInstalled(profile, pkg);
+            if (isInstalled) {
+              verifiedInstalled.push(pkg);
+            }
+          }
+
+          if (verifiedInstalled.length === safePackages.length) {
+            return {
+              success: true,
+              installed: verifiedInstalled,
+              output: 'Оновлення завершено успішно (підтверджено після відновлення SSH)',
+            };
+          }
+
+          if (attempt < 3) {
+            continue;
+          }
+
+          if (verifiedInstalled.length > 0) {
+            return {
+              success: true,
+              installed: verifiedInstalled,
+              output: `Оновлено ${verifiedInstalled.length} з ${safePackages.length} пакетів.`,
+            };
+          }
         }
         return { success: false, installed: [], error: lastError };
       }
