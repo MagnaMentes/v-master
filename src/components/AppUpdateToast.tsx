@@ -16,10 +16,15 @@ export const AppUpdateToast: React.FC = () => {
   useEffect(() => {
     // Check if app was just updated to a newer version
     const lastVersion = localStorage.getItem('vmaster_last_version');
-    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.12';
+    const justUpdatedTo = localStorage.getItem('vmaster_show_post_update');
+    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
 
-    if (lastVersion && lastVersion !== currentVersion) {
-      const cachedNotes = localStorage.getItem(`vmaster_notes_${currentVersion}`);
+    if (justUpdatedTo || (lastVersion && lastVersion !== currentVersion)) {
+      localStorage.removeItem('vmaster_show_post_update');
+      const targetVer = justUpdatedTo || currentVersion;
+      const cachedNotes = localStorage.getItem(`vmaster_notes_${targetVer}`) ||
+                          localStorage.getItem(`vmaster_notes_${currentVersion}`);
+
       if (cachedNotes) {
         setPostUpdateNotes(cachedNotes);
         setShowPostUpdateToast(true);
@@ -32,7 +37,9 @@ export const AppUpdateToast: React.FC = () => {
         });
       }
     }
-    localStorage.setItem('vmaster_last_version', currentVersion);
+    if (currentVersion) {
+      localStorage.setItem('vmaster_last_version', currentVersion);
+    }
 
     if (!window.api?.appUpdate) return;
 
@@ -85,9 +92,22 @@ export const AppUpdateToast: React.FC = () => {
   };
 
   const parseCleanLines = (notesText: string) => {
+    // If electron-updater provides HTML string (<h3>, <ul>, <li>), extract <li> content or strip tags
+    if (/<li[^>]*>/i.test(notesText)) {
+      const matches = notesText.match(/<li[^>]*>(.*?)<\/li>/gis);
+      if (matches && matches.length > 0) {
+        return matches
+          .map((m) => m.replace(/<[^>]+>/g, '').trim())
+          .filter((t) => t.length > 0)
+          .slice(0, 6);
+      }
+    }
+
+    // Fallback plain markdown/text stripping
     return notesText
+      .replace(/<[^>]+>/g, '') // strip all remaining html tags
       .split('\n')
-      .map((l) => l.trim())
+      .map((l) => l.trim().replace(/^[-*•]\s*/, ''))
       .filter((l) => l.length > 0 && !l.startsWith('#'))
       .slice(0, 6);
   };
@@ -130,6 +150,9 @@ export const AppUpdateToast: React.FC = () => {
   const handleInstallNow = async () => {
     setIsInstalling(true);
     try {
+      if (updateInfo?.version) {
+        localStorage.setItem('vmaster_show_post_update', updateInfo.version);
+      }
       await window.api.appUpdate.installNow();
     } catch (err) {
       console.error('Failed to trigger install:', err);
@@ -141,7 +164,7 @@ export const AppUpdateToast: React.FC = () => {
 
   // 1. Post-update "What's New" celebratory toast
   if (showPostUpdateToast && postUpdateNotes && !updateInfo) {
-    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.12';
+    const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
     return (
       <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-in fade-in slide-in-from-bottom-5 duration-300">
         <div className="bg-white/95 dark:bg-[#202024]/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 text-zinc-900 dark:text-zinc-100 flex flex-col gap-3">
