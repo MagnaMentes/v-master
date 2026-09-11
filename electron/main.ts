@@ -78,6 +78,15 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    app.setAboutPanelOptions({
+      applicationName: 'V-Master',
+      applicationVersion: app.getVersion(),
+      version: app.getVersion(),
+      copyright: 'Copyright © 2026 magna_mentes',
+    });
+  }
+
   registerIpcHandlers();
   createWindow();
 

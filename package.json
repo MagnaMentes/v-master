@@ -4,7 +4,7 @@
   "type": "module",
   "description": "macOS application for Proxmox VE and Ubuntu VM terminal administration",
   "main": "dist-electron/main.js",
-  "author": "V-Master Team",
+  "author": "magna_mentes",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
@@ -52,6 +52,7 @@
   "build": {
     "appId": "com.vmaster.app",
     "productName": "V-Master",
+    "copyright": "Copyright © 2026 magna_mentes",
     "directories": {
       "output": "release"
     },
