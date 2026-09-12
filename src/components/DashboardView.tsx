@@ -20,6 +20,7 @@ import {
   Layers,
   AlertTriangle,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { ServerModal } from './ServerModal';
@@ -41,6 +42,7 @@ export const DashboardView: React.FC = () => {
     openTerminalForVM,
     openTerminalForNode,
     refreshClusterData,
+    checkVMUpdates,
   } = useApp();
 
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
@@ -52,6 +54,11 @@ export const DashboardView: React.FC = () => {
   const [isNodeActionLoading, setIsNodeActionLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [isInactiveCollapsed, setIsInactiveCollapsed] = useState(true);
+
+  // Batch actions state
+  const [selectedVMIds, setSelectedVMIds] = useState<number[]>([]);
+  const [isBatchExecuting, setIsBatchExecuting] = useState(false);
+  const [batchProgressMsg, setBatchProgressMsg] = useState<string | null>(null);
 
   const sortedVMs = [...vms].sort((a, b) => a.vmid - b.vmid);
   const runningVMs = sortedVMs.filter((v) => v.status === 'running');
@@ -70,6 +77,36 @@ export const DashboardView: React.FC = () => {
   const totalMem = nodes.reduce((acc, n) => acc + (n.maxmem || 0), 0);
   const usedMem = nodes.reduce((acc, n) => acc + (n.mem || 0), 0);
   const memPercentage = totalMem > 0 ? (usedMem / totalMem) * 100 : 0;
+
+  const handleBatchAction = async (action: 'start' | 'stop' | 'reboot' | 'check-updates') => {
+    if (!activeServer || selectedVMIds.length === 0) return;
+    const targetVMs = vms.filter((v) => selectedVMIds.includes(v.vmid));
+    setIsBatchExecuting(true);
+
+    try {
+      if (action === 'check-updates') {
+        setBatchProgressMsg('Сканування оновлень ОС...');
+        for (const vm of targetVMs) {
+          if (vm.status === 'running') {
+            await checkVMUpdates(vm.vmid);
+          }
+        }
+      } else {
+        for (let i = 0; i < targetVMs.length; i++) {
+          const vm = targetVMs[i];
+          const actionText = action === 'start' ? 'Запуск' : action === 'stop' ? 'Зупинка' : 'Перезапуск';
+          setBatchProgressMsg(`${actionText} ${vm.name} (${i + 1}/${targetVMs.length})...`);
+          await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action);
+        }
+        setTimeout(() => refreshClusterData(), 1200);
+      }
+    } catch (err: any) {
+      console.error('Batch action error:', err);
+    } finally {
+      setIsBatchExecuting(false);
+      setBatchProgressMsg(null);
+    }
+  };
 
   const handleQuickPowerAction = async (vm: ProxmoxVM, action: 'start' | 'stop' | 'reboot') => {
     if (!activeServer) return;
@@ -140,14 +177,32 @@ export const DashboardView: React.FC = () => {
     const totalMemBytes = osMetric ? osMetric.totalBytes : vm.maxmem || 1;
     const ip = vm.ipAddresses && vm.ipAddresses.length > 0 ? vm.ipAddresses[0] : '—';
 
+    const isSelected = selectedVMIds.includes(vm.vmid);
+
     return (
       <tr
         key={vm.vmid}
         onClick={() => selectVM(vm)}
         className={`hover:bg-zinc-50 dark:hover:bg-zinc-700/30 cursor-pointer transition-colors ${
-          isDimmed ? 'opacity-80 dark:opacity-75 bg-zinc-50/40 dark:bg-zinc-900/20' : ''
+          isSelected
+            ? 'bg-blue-50/60 dark:bg-blue-950/30'
+            : isDimmed
+            ? 'opacity-80 dark:opacity-75 bg-zinc-50/40 dark:bg-zinc-900/20'
+            : ''
         }`}
       >
+        <td className="w-8 pl-4 py-3" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => {
+              setSelectedVMIds((prev) =>
+                prev.includes(vm.vmid) ? prev.filter((id) => id !== vm.vmid) : [...prev, vm.vmid]
+              );
+            }}
+            className="rounded border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-0 cursor-pointer"
+          />
+        </td>
         <td className="px-4 py-3">
           <span
             className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -635,6 +690,21 @@ export const DashboardView: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700/80">
                 <tr>
+                  <th className="w-8 pl-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={vms.length > 0 && selectedVMIds.length === vms.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVMIds(vms.map((v) => v.vmid));
+                        } else {
+                          setSelectedVMIds([]);
+                        }
+                      }}
+                      title="Вибрати всі віртуальні машини"
+                      className="rounded border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-2.5 font-medium">Статус</th>
                   <th className="px-4 py-2.5 font-medium">VMID</th>
                   <th className="px-4 py-2.5 font-medium">Назва</th>
@@ -652,7 +722,7 @@ export const DashboardView: React.FC = () => {
 
                 {runningVMs.length === 0 && stoppedVMs.length > 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-4 text-center text-xs text-zinc-400">
+                    <td colSpan={10} className="px-4 py-4 text-center text-xs text-zinc-400">
                       Немає активних віртуальних машин
                     </td>
                   </tr>
@@ -662,7 +732,7 @@ export const DashboardView: React.FC = () => {
                 {stoppedVMs.length > 0 && (
                   <>
                     <tr className="bg-zinc-100/70 dark:bg-zinc-800/40 border-t border-zinc-200 dark:border-zinc-700/80">
-                      <td colSpan={9} className="px-4 py-2.5">
+                      <td colSpan={10} className="px-4 py-2.5">
                         <button
                           type="button"
                           onClick={() => setIsInactiveCollapsed(!isInactiveCollapsed)}
@@ -823,6 +893,113 @@ export const DashboardView: React.FC = () => {
               >
                 {actionLoading === confirmVMAction.vm.vmid ? 'Виконання...' : 'Підтвердити'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Batch Action Bar */}
+      {selectedVMIds.length > 0 && (
+        <div className="fixed bottom-6 inset-x-0 mx-auto z-40 max-w-2xl px-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="bg-white/95 dark:bg-[#202024]/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 shadow-2xl rounded-2xl p-3 text-zinc-900 dark:text-zinc-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-xs font-semibold">
+                  Вибрано {selectedVMIds.length} {selectedVMIds.length === 1 ? 'ВМ' : selectedVMIds.length < 5 ? 'ВМ' : 'ВМ'}
+                </span>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-1.5 border-l border-zinc-200 dark:border-zinc-700 pl-3 text-[11px] text-zinc-500">
+                <button
+                  type="button"
+                  onClick={() => setSelectedVMIds(runningVMs.map((v) => v.vmid))}
+                  className="hover:text-blue-500 underline cursor-pointer"
+                >
+                  Запущені ({runningVMs.length})
+                </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedVMIds(stoppedVMs.map((v) => v.vmid))}
+                  className="hover:text-blue-500 underline cursor-pointer"
+                >
+                  Зупинені ({stoppedVMs.length})
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {isBatchExecuting ? (
+                <div className="flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 px-3 py-1">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>{batchProgressMsg || 'Виконання групової операції...'}</span>
+                </div>
+              ) : (
+                <>
+                  {/* Start action for stopped VMs */}
+                  {selectedVMIds.some((id) => stoppedVMs.some((v) => v.vmid === id)) && (
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAction('start')}
+                      title="Запустити всі вибрані зупинені ВМ"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>Запустити</span>
+                    </button>
+                  )}
+
+                  {/* Reboot action for running VMs */}
+                  {selectedVMIds.some((id) => runningVMs.some((v) => v.vmid === id)) && (
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAction('reboot')}
+                      title="Перезавантажити всі вибрані активні ВМ"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Перезапуск</span>
+                    </button>
+                  )}
+
+                  {/* Stop action for running VMs */}
+                  {selectedVMIds.some((id) => runningVMs.some((v) => v.vmid === id)) && (
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAction('stop')}
+                      title="Зупинити всі вибрані активні ВМ"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
+                    >
+                      <Square className="w-3.5 h-3.5" />
+                      <span>Зупинити</span>
+                    </button>
+                  )}
+
+                  {/* Check updates for running VMs */}
+                  {selectedVMIds.some((id) => runningVMs.some((v) => v.vmid === id)) && (
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAction('check-updates')}
+                      title="Опитати стан оновлень ОС для вибраних ВМ"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>Оновлення</span>
+                    </button>
+                  )}
+
+                  {/* Deselect all button */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVMIds([])}
+                    title="Зняти вибір (Esc)"
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ml-1 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

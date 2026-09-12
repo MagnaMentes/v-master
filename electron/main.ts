@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, Notification } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -260,6 +260,12 @@ function registerIpcHandlers() {
     ssh.sftpDelete(profile, remotePath, isDir)
   );
   ipcMain.handle('sftp:mkdir', (_e, profile: SSHProfile, remotePath: string) => ssh.sftpMkdir(profile, remotePath));
+  ipcMain.handle('sftp:readFile', (_e, profile: SSHProfile, remotePath: string) =>
+    ssh.sftpReadFile(profile, remotePath)
+  );
+  ipcMain.handle('sftp:writeFile', (_e, profile: SSHProfile, remotePath: string, content: string) =>
+    ssh.sftpWriteFile(profile, remotePath, content)
+  );
 
   // System Updates
   ipcMain.handle('updates:checkUpdates', (_e, profile: SSHProfile) => updates.checkUpdates(profile));
@@ -285,6 +291,16 @@ function registerIpcHandlers() {
       target: string,
       sudoPassword?: string
     ) => diagnostics.manageProcess(profile, action, target, sudoPassword)
+  );
+  ipcMain.handle(
+    'diagnostics:getSystemLogs',
+    (
+      _e,
+      profile: SSHProfile,
+      filter?: 'all' | 'errors' | 'warnings',
+      lines?: number,
+      unit?: string
+    ) => diagnostics.getSystemLogs(profile, filter, lines, unit)
   );
 
   // Dialogs
@@ -316,6 +332,21 @@ function registerIpcHandlers() {
       shell.openExternal(url);
     }
   });
+  ipcMain.handle(
+    'system:showNotification',
+    (_e, title: string, body: string, _type?: 'info' | 'warning' | 'error') => {
+      if (Notification.isSupported()) {
+        const notif = new Notification({
+          title: title || 'V-Master',
+          body: body || '',
+          silent: false,
+        });
+        notif.show();
+        return true;
+      }
+      return false;
+    }
+  );
 
   ipcMain.handle('app-update:getReleaseNotes', async (_e, version: string) => {
     try {

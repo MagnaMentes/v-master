@@ -13,32 +13,48 @@ The application combines hypervisor API capabilities with an integrated sysadmin
 
 ## Key Features
 
-- **Proxmox VE Cluster & Node Management**:
-  - Real-time monitoring of host status, CPU load, RAM consumption, and storage metrics.
-  - VM lifecycle operations (Start, Stop, Shutdown, Reboot, Suspend, Resume).
+- **Global Spotlight Command Palette**:
+  - Instant activation via **`⌘ + K`** or **`⌘ + P`** from any application view.
+  - Swift navigation between tabs (Dashboard, Nodes, SFTP, Settings).
+  - Search and jump directly to virtual machines by name or VMID.
+  - Immediate execution of power actions (Start, Stop, Reboot), opening terminal sessions, and launching in-depth diagnostics without redundant clicks.
+
+- **Multi-Tab SSH Terminal**:
+  - Simultaneous management of multiple interactive terminal sessions.
+  - Native keyboard shortcuts: **`⌘ + T`** (new tab), **`⌘ + W`** (close tab), **`⌘ + 1..9`** (fast tab switching).
+  - Live connection status indicators and unread activity badges.
+  - Profile-based auto-connect, macOS Keychain `ssh-agent` integration, and private SSH key authentication (`~/.ssh/id_rsa`, `id_ed25519`).
+  - Customizable snippet library for 1-click command execution.
+
+- **Proxmox VE Cluster & Batch VM Operations**:
+  - Real-time monitoring of host status, CPU load, RAM consumption, and storage metrics across all cluster nodes.
+  - Multi-select VM checkboxes and bottom Floating Action Bar for batch Start, Stop, Reboot, and OS package updates.
+  - Node systemd services management (`pve-cluster`, `pvedaemon`, `pveproxy`, etc.).
   - Snapshot creation, rollback, and deletion with optional RAM state retention.
-  - Inspection and restarts of Proxmox node services (`pve-cluster`, `pvedaemon`, `pveproxy`, etc.).
 
-- **Embedded SSH Terminal**:
-  - Instant connections using saved host profiles.
-  - Authentication via passwords or private SSH keys (`~/.ssh/id_rsa`, `id_ed25519`).
-  - Snippet library for one-click execution of recurring operational commands.
-
-- **Dual-Pane Graphic SFTP Manager**:
-  - Seamless remote file system browsing.
-  - Fast upload, download, renaming, and safe deletion of files and directories.
-
-- **VM Diagnostics & Service Maintenance**:
-  - Live ranking of top CPU and memory-consuming processes.
-  - Process termination (`kill`, `SIGKILL`), `systemd` service management, and Linux page cache flushing (`drop_caches`).
-
-- **Safe VM OS Updates**:
+- **Safe OS Updates with Pre-Update Safety Snapshots**:
+  - Automatic pre-update safety snapshot creation before running package upgrades.
+  - One-click rollback button if updates cause issues or service regressions.
   - Classification into critical security updates vs. standard packages.
-  - Single-session batch installation with post-reconnect verification, avoiding dropped connections and Fail2ban lockouts during core package (`libc-bin`, `sshd`) upgrades.
+  - Isolated single-session execution to prevent dropped connections or Fail2ban lockouts during core package upgrades (`libc-bin`, `sshd`).
 
-- **Built-in Automatic Updates**:
-  - Automated background checks for new GitHub releases.
-  - In-app "What's New" release notes modal on both notification and initial launch of upgraded versions.
+- **Deep System Diagnostics & Live Journalctl Viewer**:
+  - Interactive systemd `journalctl` log viewer with priority filters (*All*, *Errors*, *Warnings*), unit filtering (`ssh`, `nginx`, `docker`), and real-time substring search.
+  - Real-time top CPU and memory-consuming process analytics.
+  - Process termination (`kill`, `SIGKILL`), systemd service management, and Linux page cache flushing (`drop_caches`).
+
+- **Dual-Pane Graphic SFTP Manager with In-App Editor**:
+  - Seamless remote file system exploration.
+  - Fast upload, download, renaming, and safe deletion of files and directories.
+  - Fullscreen in-app text and configuration editor with line numbers, syntax styling, and remote saving via **`⌘ + S`** (`Ctrl + S`).
+
+- **Native macOS Notification Center Integration**:
+  - Native desktop notifications for unexpected VM power drops or crashes (`running` -> `stopped`).
+  - Completion alerts for lengthy batch package update workflows.
+
+- **Design & Seamless In-App Updates**:
+  - macOS Vibrancy theme support (System / Dark / Light).
+  - Background updates via GitHub Releases with detailed "What's New" release notes.
 
 ---
 

@@ -3,6 +3,7 @@ import SftpClient from 'ssh2-sftp-client';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { execSync } from 'child_process';
 import { BrowserWindow } from 'electron';
 import type { SSHProfile, SFTPItem } from '../src/types';
 
@@ -21,6 +22,23 @@ export class SSHService {
       return path.join(os.homedir(), keyPath.slice(1));
     }
     return keyPath;
+  }
+
+  public getSshAuthSock(): string | undefined {
+    if (process.env.SSH_AUTH_SOCK && fs.existsSync(process.env.SSH_AUTH_SOCK)) {
+      return process.env.SSH_AUTH_SOCK;
+    }
+    if (process.platform === 'darwin') {
+      try {
+        const sock = execSync('launchctl getenv SSH_AUTH_SOCK', { encoding: 'utf8', timeout: 1000 }).trim();
+        if (sock && fs.existsSync(sock)) {
+          return sock;
+        }
+      } catch {
+        // Fallback or ignore
+      }
+    }
+    return undefined;
   }
 
   public getSshConfigUser(host?: string): string | undefined {
@@ -143,8 +161,9 @@ export class SSHService {
         };
 
         // 1. Support macOS ssh-agent (used by standard terminal)
-        if (process.env.SSH_AUTH_SOCK) {
-          connectConfig.agent = process.env.SSH_AUTH_SOCK;
+        const agentSock = this.getSshAuthSock();
+        if (agentSock) {
+          connectConfig.agent = agentSock;
         }
 
         // 2. Private Key & Passphrase
@@ -223,8 +242,9 @@ export class SSHService {
       readyTimeout: 15000,
     };
 
-    if (process.env.SSH_AUTH_SOCK) {
-      connectConfig.agent = process.env.SSH_AUTH_SOCK;
+    const agentSock = this.getSshAuthSock();
+    if (agentSock) {
+      connectConfig.agent = agentSock;
     }
 
     if (profile.authType === 'privateKey' || !profile.password) {
@@ -340,6 +360,41 @@ export class SSHService {
     }
   }
 
+  public async sftpReadFile(
+    profile: SSHProfile,
+    remotePath: string
+  ): Promise<{ success: boolean; content?: string; error?: string }> {
+    const sftp = await this.getSftpClient(profile);
+    try {
+      const buffer = await sftp.get(remotePath);
+      return {
+        success: true,
+        content: Buffer.isBuffer(buffer) ? buffer.toString('utf-8') : String(buffer),
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    } finally {
+      await sftp.end();
+    }
+  }
+
+  public async sftpWriteFile(
+    profile: SSHProfile,
+    remotePath: string,
+    content: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const sftp = await this.getSftpClient(profile);
+    try {
+      const buffer = Buffer.from(content, 'utf-8');
+      await sftp.put(buffer, remotePath);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    } finally {
+      await sftp.end();
+    }
+  }
+
   private lastConnectTimes: Map<string, number> = new Map();
 
   private async throttleHost(host: string, minIntervalMs = 1200): Promise<void> {
@@ -439,8 +494,9 @@ export class SSHService {
           readyTimeout: 15000,
         };
 
-        if (process.env.SSH_AUTH_SOCK) {
-          connectConfig.agent = process.env.SSH_AUTH_SOCK;
+        const agentSock = this.getSshAuthSock();
+        if (agentSock) {
+          connectConfig.agent = agentSock;
         }
 
         if (profile.authType === 'privateKey' || !profile.password) {

@@ -285,6 +285,8 @@ export const VMDetailView: React.FC = () => {
     currentPackage: string;
     percent: number;
   } | null>(null);
+  const [autoCreateSnapshot, setAutoCreateSnapshot] = useState(true);
+  const [lastPreUpdateSnapshot, setLastPreUpdateSnapshot] = useState<string | null>(null);
 
   const handleInstallAllSafe = async () => {
     if (!selectedVM) return;
@@ -301,13 +303,45 @@ export const VMDetailView: React.FC = () => {
       if (!pass) return;
     }
 
+    setUpdateStatusMsg(null);
+
+    // 1. Create Pre-update Safety Snapshot if enabled
+    let createdSnapshotName: string | null = null;
+    if (autoCreateSnapshot && activeServer && window.api?.proxmox?.createSnapshot) {
+      setBatchProgress({
+        current: 0,
+        total: safePackages.length,
+        currentPackage: 'Створення захисного снапшота...',
+        percent: 10,
+      });
+
+      const dateStr = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+      const snapName = `pre_upd_${dateStr}`;
+      try {
+        const snapRes = await window.api.proxmox.createSnapshot(
+          activeServer,
+          selectedVM.node,
+          selectedVM.vmid,
+          snapName,
+          `Захисний снапшот перед оновленням ${safePackages.length} пакетів`,
+          false
+        );
+        if (snapRes.success) {
+          createdSnapshotName = snapName;
+          setLastPreUpdateSnapshot(snapName);
+          loadSnapshots();
+        }
+      } catch (snapErr) {
+        console.warn('Failed to create pre-update safety snapshot:', snapErr);
+      }
+    }
+
     setBatchProgress({
       current: 1,
       total: safePackages.length,
       currentPackage: safePackages.join(', '),
       percent: 30,
     });
-    setUpdateStatusMsg(null);
 
     try {
       const res = await installAllSafeVMUpdates(selectedVM.vmid, safePackages, pass);
@@ -325,7 +359,9 @@ export const VMDetailView: React.FC = () => {
         });
         setUpdateStatusMsg({
           type: 'success',
-          text: `Успішно оновлено всі ${res.installedCount || safePackages.length} компонентів в єдиній сесії!`,
+          text: `Успішно оновлено всі ${res.installedCount || safePackages.length} компонентів в єдиній сесії!${
+            createdSnapshotName ? ` Створено снапшот: ${createdSnapshotName}` : ''
+          }`,
         });
       } else {
         if (res.error?.includes('password is required') || res.error?.includes('incorrect password')) {
@@ -1239,7 +1275,21 @@ export const VMDetailView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {safeCount > 0 && (
+                      <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/50 dark:bg-zinc-800/40 text-[11px] text-zinc-600 dark:text-zinc-300 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 select-none transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={autoCreateSnapshot}
+                          onChange={(e) => setAutoCreateSnapshot(e.target.checked)}
+                          disabled={batchProgress !== null}
+                          className="rounded border-zinc-300 dark:border-zinc-600 text-emerald-600 focus:ring-0 cursor-pointer"
+                        />
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Захисний снапшот</span>
+                      </label>
+                    )}
+
                     {safeCount > 0 && (
                       <button
                         onClick={handleInstallAllSafe}
@@ -1250,7 +1300,9 @@ export const VMDetailView: React.FC = () => {
                           <>
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                             <span>
-                              Оновлення {batchProgress.current}/{batchProgress.total} ({batchProgress.percent}%)...
+                              {batchProgress.currentPackage.startsWith('Створення')
+                                ? 'Створення снапшота...'
+                                : `Оновлення ${batchProgress.current}/${batchProgress.total} (${batchProgress.percent}%)...`}
                             </span>
                           </>
                         ) : (
@@ -1259,6 +1311,25 @@ export const VMDetailView: React.FC = () => {
                             <span>Оновити всі дозволені ({safeCount})</span>
                           </>
                         )}
+                      </button>
+                    )}
+
+                    {lastPreUpdateSnapshot && (
+                      <button
+                        onClick={() => {
+                          const existingSnap = snapshots.find((s) => s.name === lastPreUpdateSnapshot);
+                          if (existingSnap) {
+                            handleRollbackSnapshot(existingSnap);
+                          } else {
+                            handleRollbackSnapshot({ name: lastPreUpdateSnapshot } as VMSnapshot);
+                          }
+                        }}
+                        disabled={isActionLoading}
+                        title={`Відкотити систему до стану перед оновленням (${lastPreUpdateSnapshot})`}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium border border-amber-300 dark:border-amber-800 transition-colors disabled:opacity-50"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        <span>Відкотити до {lastPreUpdateSnapshot}</span>
                       </button>
                     )}
 

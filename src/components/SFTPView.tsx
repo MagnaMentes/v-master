@@ -13,8 +13,10 @@ import {
   Key,
   AlertCircle,
   CheckCircle2,
+  FileCode,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { SFTPFileEditorModal } from './SFTPFileEditorModal';
 import type { SFTPItem, SSHProfile } from '../types';
 
 export const SFTPView: React.FC = () => {
@@ -37,6 +39,9 @@ export const SFTPView: React.FC = () => {
   // New folder state
   const [isMkdirOpen, setIsMkdirOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+
+  // File editor modal state
+  const [editingFile, setEditingFile] = useState<{ path: string; name: string } | null>(null);
 
   // Initial select profile from selectedVM or first available
   useEffect(() => {
@@ -68,10 +73,7 @@ export const SFTPView: React.FC = () => {
       setItems(list);
       setCurrentPath(dirPath);
     } catch (err: any) {
-      setError(err.message || 'Не вдалося відкрити директорію');
-      if (dirPath !== '.' && dirPath !== '/') {
-        loadDirectory('.');
-      }
+      setError(err.message || 'Помилка завантаження каталогу');
     } finally {
       setIsLoading(false);
     }
@@ -94,9 +96,11 @@ export const SFTPView: React.FC = () => {
   };
 
   const handleOpenItem = (item: SFTPItem) => {
+    const itemPath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
     if (item.type === 'directory') {
-      const newPath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
-      loadDirectory(newPath);
+      loadDirectory(itemPath);
+    } else {
+      setEditingFile({ path: itemPath, name: item.name });
     }
   };
 
@@ -356,13 +360,25 @@ export const SFTPView: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                     >
                       {item.type !== 'directory' && (
-                        <button
-                          onClick={() => handleDownloadFile(item)}
-                          title="Зберегти на Mac"
-                          className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-blue-600 dark:text-blue-400 transition-colors"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              const itemPath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
+                              setEditingFile({ path: itemPath, name: item.name });
+                            }}
+                            title="Редагувати файл на сервері"
+                            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-amber-600 dark:text-amber-400 transition-colors"
+                          >
+                            <FileCode className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadFile(item)}
+                            title="Зберегти на Mac"
+                            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-blue-600 dark:text-blue-400 transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => handleDeleteItem(item)}
@@ -379,6 +395,17 @@ export const SFTPView: React.FC = () => {
           </table>
         )}
       </div>
+
+      {/* SFTP File Editor Modal */}
+      {editingFile && selectedProfile && (
+        <SFTPFileEditorModal
+          isOpen={Boolean(editingFile)}
+          onClose={() => setEditingFile(null)}
+          profile={selectedProfile}
+          remoteFilePath={editingFile.path}
+          fileName={editingFile.name}
+        />
+      )}
 
       {/* New Folder Modal */}
       {isMkdirOpen && (

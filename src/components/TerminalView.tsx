@@ -43,6 +43,35 @@ export const TerminalView: React.FC = () => {
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
+  // Terminal tab shortcuts (Cmd+T, Cmd+W, Cmd+1..9)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if inside an input or textarea
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'w') {
+        if (activeTab) {
+          e.preventDefault();
+          closeTab(activeTab.id);
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        setIsNewTabMenuOpen((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key)) {
+        const index = parseInt(e.key, 10) - 1;
+        if (tabs[index]) {
+          e.preventDefault();
+          setActiveTabId(tabs[index].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, tabs, closeTab, setActiveTabId]);
+
   const filteredSnippets = snippets.filter(
     (s) =>
       s.title.toLowerCase().includes(snippetSearch.toLowerCase()) ||
@@ -114,25 +143,33 @@ export const TerminalView: React.FC = () => {
       <div className="h-10 px-2 flex items-center justify-between bg-[#ECECEC] dark:bg-[#1E1E22] border-b border-zinc-300 dark:border-zinc-800 text-xs">
         {/* Tabs Scroller */}
         <div className="flex items-center gap-1 overflow-x-auto flex-1 h-full py-1">
-          {tabs.map((tab) => {
+          {tabs.map((tab, idx) => {
             const isActive = tab.id === activeTabId;
             return (
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
+                title={`Вкладка ${idx + 1} (⌘${idx + 1})`}
                 className={`group flex items-center gap-2 px-3 h-full rounded-md cursor-pointer transition-colors ${
                   isActive
                     ? 'bg-white dark:bg-[#28282D] text-blue-600 dark:text-blue-400 font-medium shadow-xs border border-zinc-300 dark:border-zinc-700'
                     : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/80 dark:hover:bg-zinc-800/80'
                 }`}
               >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                 <Terminal className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate max-w-[140px]">{tab.title}</span>
+                {idx < 9 && (
+                  <span className="text-[10px] text-zinc-400 group-hover:hidden select-none font-mono">
+                    ⌘{idx + 1}
+                  </span>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     closeTab(tab.id);
                   }}
+                  title="Закрити вкладку (⌘W)"
                   className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-opacity"
                 >
                   <X className="w-3 h-3 text-zinc-500" />

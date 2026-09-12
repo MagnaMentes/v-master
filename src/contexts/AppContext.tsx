@@ -137,6 +137,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const isRefreshingRef = useRef(false);
+  const prevVMStatusesRef = useRef<Map<number, string>>(new Map());
 
   // Refresh Cluster Data
   const refreshClusterData = useCallback(async (isSilent: boolean = false) => {
@@ -166,6 +167,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       allVMs.sort((a, b) => a.vmid - b.vmid);
       setVms(allVMs);
+
+      // Track unexpected VM state transitions (running -> stopped)
+      if (prevVMStatusesRef.current.size > 0) {
+        for (const vm of allVMs) {
+          const prevStatus = prevVMStatusesRef.current.get(vm.vmid);
+          if (prevStatus === 'running' && vm.status === 'stopped') {
+            window.api?.system?.showNotification?.(
+              'Зміна стану ВМ',
+              `Віртуальна машина "${vm.name || vm.vmid}" (${vm.vmid}) зупинилась або зазнала аварійного збою.`,
+              'warning'
+            );
+          }
+        }
+      }
+      const newStatusMap = new Map<number, string>();
+      for (const vm of allVMs) {
+        newStatusMap.set(vm.vmid, vm.status);
+      }
+      prevVMStatusesRef.current = newStatusMap;
 
       // Compute resource usage alerts
       const alerts: Record<number, VMResourceAlert> = {};
@@ -253,6 +273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [loadServers, loadSSHProfiles, loadSnippets]);
 
   useEffect(() => {
+    prevVMStatusesRef.current.clear();
     if (activeServer) {
       refreshClusterData(false);
 

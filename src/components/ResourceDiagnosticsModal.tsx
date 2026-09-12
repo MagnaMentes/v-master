@@ -15,6 +15,7 @@ import {
   Settings,
   WifiOff,
   Key,
+  FileText,
 } from 'lucide-react';
 import type { ProxmoxVM, SSHProfile, VMDiagnosticsData } from '../types';
 
@@ -41,7 +42,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'mem' | 'cpu' | 'pid'>('mem');
-  const [activeTab, setActiveTab] = useState<'processes' | 'disks'>('processes');
+  const [activeTab, setActiveTab] = useState<'processes' | 'disks' | 'logs'>('processes');
   const [actingPid, setActingPid] = useState<number | null>(null);
   const [isDroppingCache, setIsDroppingCache] = useState(false);
   const [sudoPass, setSudoPass] = useState<string>(sshProfile?.password || '');
@@ -50,6 +51,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
     isOpen: boolean;
     callback: ((pass: string | null) => void) | null;
   }>({ isOpen: false, callback: null });
+
+  // System logs state
+  const [logsContent, setLogsContent] = useState<string>('');
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
+  const [logFilter, setLogFilter] = useState<'all' | 'errors' | 'warnings'>('all');
+  const [logUnit, setLogUnit] = useState<string>('');
+  const [logSearch, setLogSearch] = useState<string>('');
 
   const effectiveProfile = useMemo(() => {
     const primaryIp = vm.ipAddresses && vm.ipAddresses.length > 0 ? vm.ipAddresses[0] : undefined;
@@ -99,6 +107,34 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
       setLoading(false);
     }
   }, [effectiveProfile, vm.ipAddresses]);
+
+  const fetchLogs = useCallback(async () => {
+    if (!effectiveProfile || !effectiveProfile.host) return;
+    setIsLogsLoading(true);
+    try {
+      if (window.api?.diagnostics?.getSystemLogs) {
+        const res = await window.api.diagnostics.getSystemLogs(
+          effectiveProfile,
+          logFilter,
+          120,
+          logUnit
+        );
+        if (res.success && res.logs) {
+          setLogsContent(res.logs);
+        } else {
+          setLogsContent(res.error || 'Не вдалося отримати логи системи');
+        }
+      }
+    } finally {
+      setIsLogsLoading(false);
+    }
+  }, [effectiveProfile, logFilter, logUnit]);
+
+  useEffect(() => {
+    if (activeTab === 'logs' && isOpen) {
+      fetchLogs();
+    }
+  }, [activeTab, isOpen, fetchLogs]);
 
   useEffect(() => {
     if (isOpen) {
@@ -432,7 +468,74 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
             >
               Дискові розділи ({data?.disks.length || 0})
             </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'logs'
+                  ? 'bg-white dark:bg-[#2A2A2E] text-zinc-900 dark:text-white shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Логи (Journal)</span>
+            </button>
           </div>
+
+          {activeTab === 'logs' && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <button
+                  onClick={() => setLogFilter('all')}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                    logFilter === 'all' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-zinc-500'
+                  }`}
+                >
+                  Всі
+                </button>
+                <button
+                  onClick={() => setLogFilter('errors')}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                    logFilter === 'errors' ? 'bg-rose-500 text-white shadow-2xs' : 'text-zinc-500'
+                  }`}
+                >
+                  Помилки
+                </button>
+                <button
+                  onClick={() => setLogFilter('warnings')}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                    logFilter === 'warnings' ? 'bg-amber-500 text-white shadow-2xs' : 'text-zinc-500'
+                  }`}
+                >
+                  Увага
+                </button>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Служба (unit)..."
+                value={logUnit}
+                onChange={(e) => setLogUnit(e.target.value)}
+                className="px-2.5 py-1 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 focus:outline-hidden w-28"
+              />
+
+              <input
+                type="text"
+                placeholder="Пошук у логах..."
+                value={logSearch}
+                onChange={(e) => setLogSearch(e.target.value)}
+                className="px-2.5 py-1 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 focus:outline-hidden w-32"
+              />
+
+              <button
+                onClick={fetchLogs}
+                disabled={isLogsLoading}
+                title="Оновити логи"
+                className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLogsLoading ? 'animate-spin text-blue-500' : ''}`} />
+              </button>
+            </div>
+          )}
 
           {activeTab === 'processes' && (
             <div className="flex items-center gap-2.5">
@@ -632,7 +735,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 </table>
               </div>
             )
-          ) : (
+          ) : activeTab === 'disks' ? (
             <div className="space-y-3">
               {data?.disks.map((disk, idx) => {
                 const numericPercent = parseInt(disk.usePercent.replace('%', ''), 10) || 0;
@@ -683,6 +786,41 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                   </div>
                 );
               })}
+            </div>
+          ) : (
+            <div className="flex flex-col h-[460px] bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden">
+              <div className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-300 select-text whitespace-pre-wrap">
+                {isLogsLoading ? (
+                  <div className="flex items-center justify-center h-full gap-2 text-zinc-500">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                    <span>Завантаження системного журналу...</span>
+                  </div>
+                ) : logsContent ? (
+                  logsContent
+                    .split('\n')
+                    .filter((line) => !logSearch || line.toLowerCase().includes(logSearch.toLowerCase()))
+                    .map((line, idx) => {
+                      const isErr = /error|failed|fault|crit|panic|emergency/i.test(line);
+                      const isWarn = /warn|warning/i.test(line);
+                      return (
+                        <div
+                          key={idx}
+                          className={`hover:bg-zinc-900/80 px-1 py-0.5 rounded transition-colors ${
+                            isErr
+                              ? 'text-rose-400 bg-rose-950/20'
+                              : isWarn
+                              ? 'text-amber-400 bg-amber-950/10'
+                              : 'text-zinc-300'
+                          }`}
+                        >
+                          {line}
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="text-center py-20 text-zinc-600">Журнал порожній або недоступний</div>
+                )}
+              </div>
             </div>
           )}
         </div>

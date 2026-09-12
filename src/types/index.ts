@@ -318,6 +318,8 @@ export interface WindowApi {
     upload: (profile: SSHProfile, localPath: string, remotePath: string) => Promise<{ success: boolean; error?: string }>;
     delete: (profile: SSHProfile, remotePath: string, isDir: boolean) => Promise<{ success: boolean; error?: string }>;
     mkdir: (profile: SSHProfile, remotePath: string) => Promise<{ success: boolean; error?: string }>;
+    readFile: (profile: SSHProfile, remotePath: string) => Promise<{ success: boolean; content?: string; error?: string }>;
+    writeFile: (profile: SSHProfile, remotePath: string, content: string) => Promise<{ success: boolean; error?: string }>;
     selectLocalFile: () => Promise<string | null>;
     selectLocalSavePath: (defaultFilename: string) => Promise<string | null>;
   };
@@ -329,12 +331,23 @@ export interface WindowApi {
       target: string, // PID for kill, service name for restart-service, or empty for drop-caches
       sudoPassword?: string
     ) => Promise<{ success: boolean; error?: string }>;
+    getSystemLogs: (
+      profile: SSHProfile,
+      filter?: 'all' | 'errors' | 'warnings',
+      lines?: number,
+      unit?: string
+    ) => Promise<{ success: boolean; logs?: string; error?: string }>;
   };
   system: {
     getTheme: () => Promise<'dark' | 'light'>;
     setThemeSource: (mode: 'system' | 'light' | 'dark') => Promise<void>;
     onThemeChange: (callback: (isDark: boolean) => void) => () => void;
     openExternal: (url: string) => Promise<void>;
+    showNotification: (
+      title: string,
+      body: string,
+      type?: 'info' | 'warning' | 'error'
+    ) => Promise<boolean>;
   };
   appUpdate: {
     onAvailable: (callback: (info: AppUpdateInfo) => void) => () => void;

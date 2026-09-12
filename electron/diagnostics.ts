@@ -216,4 +216,32 @@ ps aux --sort=-%mem | head -n 35
       return { success: false, error: err.message || 'Помилка виконання дії' };
     }
   }
+
+  public async getSystemLogs(
+    profile: SSHProfile,
+    filter: 'all' | 'errors' | 'warnings' = 'all',
+    lines: number = 100,
+    unit?: string
+  ): Promise<{ success: boolean; logs?: string; error?: string }> {
+    let cmd = `journalctl -n ${lines} --no-pager`;
+    if (unit && unit.trim()) {
+      const cleanUnit = unit.trim().replace(/[^a-zA-Z0-9_.-]/g, '');
+      if (cleanUnit) cmd += ` -u ${cleanUnit}`;
+    }
+    if (filter === 'errors') {
+      cmd += ` -p 3`;
+    } else if (filter === 'warnings') {
+      cmd += ` -p 4`;
+    }
+
+    try {
+      const res = await this.ssh.execCommand(profile, cmd, 10000);
+      return {
+        success: true,
+        logs: res.stdout || res.stderr || 'Записів не знайдено.',
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Не вдалося отримати логи системи' };
+    }
+  }
 }

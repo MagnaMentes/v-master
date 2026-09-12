@@ -155,6 +155,10 @@ const api = {
       ipcRenderer.invoke('sftp:delete', profile, remotePath, isDir),
     mkdir: (profile: SSHProfile, remotePath: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('sftp:mkdir', profile, remotePath),
+    readFile: (profile: SSHProfile, remotePath: string): Promise<{ success: boolean; content?: string; error?: string }> =>
+      ipcRenderer.invoke('sftp:readFile', profile, remotePath),
+    writeFile: (profile: SSHProfile, remotePath: string, content: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('sftp:writeFile', profile, remotePath, content),
     selectLocalFile: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectLocalFile'),
     selectLocalSavePath: (defaultFilename: string): Promise<string | null> =>
       ipcRenderer.invoke('dialog:selectLocalSavePath', defaultFilename),
@@ -171,6 +175,13 @@ const api = {
       sudoPassword?: string
     ): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('diagnostics:manageProcess', profile, action, target, sudoPassword),
+    getSystemLogs: (
+      profile: SSHProfile,
+      filter?: 'all' | 'errors' | 'warnings',
+      lines?: number,
+      unit?: string
+    ): Promise<{ success: boolean; logs?: string; error?: string }> =>
+      ipcRenderer.invoke('diagnostics:getSystemLogs', profile, filter, lines, unit),
   },
 
   // App & Theme
@@ -184,6 +195,8 @@ const api = {
       return () => ipcRenderer.removeListener('system:themeChanged', handler);
     },
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url),
+    showNotification: (title: string, body: string, type?: 'info' | 'warning' | 'error'): Promise<boolean> =>
+      ipcRenderer.invoke('system:showNotification', title, body, type),
   },
 
   // App Update (In-App)
