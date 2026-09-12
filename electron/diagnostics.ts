@@ -10,7 +10,7 @@ export class DiagnosticsService {
       return innerCommand;
     }
 
-    const pass = sudoPassword || profile.password;
+    const pass = sudoPassword || profile.sudoPassword || profile.password;
     if (pass && pass.trim().length > 0) {
       const escapedPass = pass.replace(/'/g, "'\\''");
       return `echo '${escapedPass}' | sudo -S -p '' ${innerCommand}`;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   X,
   RefreshCw,
@@ -18,6 +18,7 @@ import {
   FileText,
 } from 'lucide-react';
 import type { ProxmoxVM, SSHProfile, VMDiagnosticsData } from '../types';
+import { useApp } from '../contexts/AppContext';
 
 interface ResourceDiagnosticsModalProps {
   isOpen: boolean;
@@ -28,6 +29,39 @@ interface ResourceDiagnosticsModalProps {
   onConfigureSSH?: () => void;
 }
 
+function mergeLogs(existing: string, incoming: string): string {
+  if (!existing || !existing.trim()) return incoming;
+  if (!incoming || !incoming.trim()) return existing;
+
+  const existingLines = existing.trimEnd().split('\n');
+  const incomingLines = incoming.trimEnd().split('\n');
+
+  // Exact match on the last known line
+  const lastLine = existingLines[existingLines.length - 1];
+  const lastIndex = incomingLines.lastIndexOf(lastLine);
+
+  if (lastIndex !== -1) {
+    const newLines = incomingLines.slice(lastIndex + 1);
+    if (newLines.length === 0) return existing;
+    return [...existingLines, ...newLines].slice(-1000).join('\n');
+  }
+
+  // Suffix matching up to 30 lines
+  const maxCheck = Math.min(30, existingLines.length, incomingLines.length);
+  for (let len = maxCheck; len > 0; len--) {
+    const existingTail = existingLines.slice(-len);
+    const incomingHead = incomingLines.slice(0, len);
+    if (existingTail.every((line, i) => line === incomingHead[i])) {
+      const newLines = incomingLines.slice(len);
+      if (newLines.length === 0) return existing;
+      return [...existingLines, ...newLines].slice(-1000).join('\n');
+    }
+  }
+
+  // Append new incoming lines preserving history
+  return [...existingLines, ...incomingLines].slice(-1000).join('\n');
+}
+
 export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> = ({
   isOpen,
   onClose,
@@ -36,6 +70,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   onOpenTerminal,
   onConfigureSSH,
 }) => {
+  const { saveSSHProfile } = useApp();
   const [data, setData] = useState<VMDiagnosticsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +80,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   const [activeTab, setActiveTab] = useState<'processes' | 'disks' | 'logs'>('processes');
   const [actingPid, setActingPid] = useState<number | null>(null);
   const [isDroppingCache, setIsDroppingCache] = useState(false);
-  const [sudoPass, setSudoPass] = useState<string>(sshProfile?.password || '');
+  const [sudoPass, setSudoPass] = useState<string>(sshProfile?.sudoPassword || sshProfile?.password || '');
   const [tempSudoInput, setTempSudoInput] = useState('');
   const [sudoModal, setSudoModal] = useState<{
     isOpen: boolean;
@@ -59,13 +94,21 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   const [logUnit, setLogUnit] = useState<string>('');
   const [logSearch, setLogSearch] = useState<string>('');
 
+  const primaryIp = vm.ipAddresses && vm.ipAddresses.length > 0 ? vm.ipAddresses[0] : undefined;
   const effectiveProfile = useMemo(() => {
-    const primaryIp = vm.ipAddresses && vm.ipAddresses.length > 0 ? vm.ipAddresses[0] : undefined;
     if (sshProfile && sshProfile.username) {
       return { ...sshProfile, host: sshProfile.host || primaryIp || '' };
     }
     return null;
-  }, [sshProfile, vm]);
+  }, [
+    sshProfile?.id,
+    sshProfile?.host,
+    sshProfile?.username,
+    sshProfile?.password,
+    sshProfile?.privateKeyPath,
+    sshProfile?.port,
+    primaryIp,
+  ]);
 
   const fetchDiagnostics = useCallback(async () => {
     if (!effectiveProfile || !effectiveProfile.host) {
@@ -108,33 +151,72 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
     }
   }, [effectiveProfile, vm.ipAddresses]);
 
-  const fetchLogs = useCallback(async () => {
-    if (!effectiveProfile || !effectiveProfile.host) return;
-    setIsLogsLoading(true);
-    try {
-      if (window.api?.diagnostics?.getSystemLogs) {
-        const res = await window.api.diagnostics.getSystemLogs(
-          effectiveProfile,
-          logFilter,
-          120,
-          logUnit
-        );
-        if (res.success && res.logs) {
-          setLogsContent(res.logs);
-        } else {
-          setLogsContent(res.error || 'Не вдалося отримати логи системи');
-        }
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState<boolean>(true);
+  const lastFilterRef = useRef({ filter: logFilter, unit: logUnit });
+
+  const fetchLogs = useCallback(
+    async (isBackground: boolean = false) => {
+      if (!effectiveProfile || !effectiveProfile.host) return;
+
+      const filterChanged =
+        lastFilterRef.current.filter !== logFilter || lastFilterRef.current.unit !== logUnit;
+      lastFilterRef.current = { filter: logFilter, unit: logUnit };
+
+      if (!isBackground || filterChanged) {
+        setIsLogsLoading(true);
       }
-    } finally {
-      setIsLogsLoading(false);
-    }
-  }, [effectiveProfile, logFilter, logUnit]);
+
+      try {
+        if (window.api?.diagnostics?.getSystemLogs) {
+          const res = await window.api.diagnostics.getSystemLogs(
+            effectiveProfile,
+            logFilter,
+            120,
+            logUnit
+          );
+          if (res.success && typeof res.logs === 'string') {
+            const incomingLogs = res.logs;
+            setLogsContent((prev) => {
+              if (filterChanged || !prev) {
+                return incomingLogs;
+              }
+              return mergeLogs(prev, incomingLogs);
+            });
+          } else if (!isBackground) {
+            setLogsContent(res.error || 'Не вдалося отримати логи системи');
+          }
+        }
+      } finally {
+        setIsLogsLoading(false);
+      }
+    },
+    [effectiveProfile, logFilter, logUnit]
+  );
 
   useEffect(() => {
     if (activeTab === 'logs' && isOpen) {
-      fetchLogs();
+      fetchLogs(false);
+      const timer = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        fetchLogs(true);
+      }, 5000);
+      return () => clearInterval(timer);
     }
   }, [activeTab, isOpen, fetchLogs]);
+
+  useEffect(() => {
+    if (autoScroll && logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+    }
+  }, [logsContent, autoScroll]);
+
+  const handleLogsScroll = () => {
+    if (!logsContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = logsContainerRef.current;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+    setAutoScroll(isAtBottom);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -153,6 +235,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   }, [error]);
 
   const requestSudoPassword = (): Promise<string | null> => {
+    if (effectiveProfile?.sudoPassword) return Promise.resolve(effectiveProfile.sudoPassword);
     if (sudoPass) return Promise.resolve(sudoPass);
     if (effectiveProfile?.password) return Promise.resolve(effectiveProfile.password);
 
@@ -163,6 +246,9 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
         callback: (pass: string | null) => {
           if (pass) {
             setSudoPass(pass);
+            if (sshProfile) {
+              saveSSHProfile({ ...sshProfile, sudoPassword: pass });
+            }
           }
           resolve(pass);
         },
@@ -180,7 +266,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
     if (action === 'drop-caches') setIsDroppingCache(true);
     setStatusMsg(null);
 
-    let pass = sudoPass || effectiveProfile.password;
+    let pass = sudoPass || effectiveProfile.sudoPassword || effectiveProfile.password;
 
     try {
       let res = await window.api.diagnostics.manageProcess(effectiveProfile, action, target, pass);
@@ -193,6 +279,10 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
           res.error.toLowerCase().includes('sudo:') ||
           res.error.toLowerCase().includes('terminal'))
       ) {
+        setSudoPass('');
+        if (sshProfile?.sudoPassword) {
+          saveSSHProfile({ ...sshProfile, sudoPassword: '' });
+        }
         const entered = await requestSudoPassword();
         if (!entered) {
           if (pid) setActingPid(null);
@@ -527,7 +617,25 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               />
 
               <button
-                onClick={fetchLogs}
+                type="button"
+                onClick={() => {
+                  setAutoScroll((prev) => !prev);
+                  if (!autoScroll && logsContainerRef.current) {
+                    logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+                  }
+                }}
+                title={autoScroll ? 'Автопрокрутка увімкнена' : 'Автопрокрутка вимкнена'}
+                className={`px-2 py-1 text-[11px] font-medium rounded-lg border transition-colors flex items-center gap-1 ${
+                  autoScroll
+                    ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                <span>Автоскрол</span>
+              </button>
+
+              <button
+                onClick={() => fetchLogs(false)}
                 disabled={isLogsLoading}
                 title="Оновити логи"
                 className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
@@ -788,9 +896,21 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               })}
             </div>
           ) : (
-            <div className="flex flex-col h-[460px] bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden">
-              <div className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-300 select-text whitespace-pre-wrap">
-                {isLogsLoading ? (
+            <div className="flex flex-col h-[460px] bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden relative">
+              {/* Subtle top indicator during background sync */}
+              {isLogsLoading && logsContent && (
+                <div className="absolute top-2.5 right-3 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-[10px] text-zinc-400 font-mono backdrop-blur-xs shadow-xs">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-blue-400" />
+                  <span>Синхронізація...</span>
+                </div>
+              )}
+
+              <div
+                ref={logsContainerRef}
+                onScroll={handleLogsScroll}
+                className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-300 select-text whitespace-pre-wrap"
+              >
+                {isLogsLoading && !logsContent ? (
                   <div className="flex items-center justify-center h-full gap-2 text-zinc-500">
                     <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
                     <span>Завантаження системного журналу...</span>

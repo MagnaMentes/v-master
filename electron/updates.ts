@@ -66,7 +66,7 @@ export class UpdateService {
       return innerCommand;
     }
 
-    const pass = sudoPassword || profile.password;
+    const pass = sudoPassword || profile.sudoPassword || profile.password;
     if (pass && pass.trim().length > 0) {
       // Escape single quotes for bash
       const escapedPass = pass.replace(/'/g, "'\\''");

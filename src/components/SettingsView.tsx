@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useApp } from '../contexts/AppContext';
 import { ServerModal } from './ServerModal';
 import { SSHProfileModal } from './SSHProfileModal';
+import { terminalThemes } from '../utils/terminalThemes';
 import type { ProxmoxServerConfig, SSHProfile, TerminalTheme } from '../types';
 
 export const SettingsView: React.FC = () => {
@@ -33,6 +34,14 @@ export const SettingsView: React.FC = () => {
     setFontSize(size);
     await updateSettings({ terminalFontSize: size });
   };
+
+  const currentTerminalColors = terminalThemes[terminalTheme] || terminalThemes.dark;
+  const themeOptions: { id: TerminalTheme; label: string; bg: string }[] = [
+    { id: 'dark', label: 'Dark Default', bg: '#18181B' },
+    { id: 'light', label: 'Light Clean', bg: '#FFFFFF' },
+    { id: 'dracula', label: 'Dracula Dark', bg: '#282A36' },
+    { id: 'monokai', label: 'Monokai Pro', bg: '#272822' },
+  ];
 
   return (
     <div className="flex-1 flex flex-col h-full bg-zinc-50 dark:bg-[#18181B] text-zinc-800 dark:text-zinc-100 overflow-y-auto select-none p-6 space-y-6">
@@ -120,8 +129,111 @@ export const SettingsView: React.FC = () => {
               max="20"
               value={fontSize}
               onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-              className="w-full mt-2"
+              className="w-full mt-2 cursor-pointer accent-blue-600"
             />
+          </div>
+        </div>
+
+        {/* Live Visual Terminal Preview */}
+        <div className="pt-2 max-w-2xl space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              Візуальний приклад зовнішнього вигляду
+            </span>
+            <div className="flex items-center gap-1.5">
+              {themeOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTerminalTheme(opt.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all ${
+                    terminalTheme === opt.id
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-semibold shadow-xs ring-1 ring-blue-500/30'
+                      : 'border-zinc-200 dark:border-zinc-700/80 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black/15 dark:border-white/20 inline-block shrink-0"
+                    style={{ backgroundColor: opt.bg }}
+                  />
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Terminal Window Mockup */}
+          <div
+            className="rounded-xl overflow-hidden border border-zinc-300 dark:border-zinc-700/80 shadow-md font-mono transition-colors duration-200"
+            style={{
+              backgroundColor: currentTerminalColors.background,
+              color: currentTerminalColors.foreground,
+            }}
+          >
+            {/* Window title bar */}
+            <div
+              className="px-3.5 py-2 flex items-center justify-between border-b"
+              style={{
+                borderColor: `${currentTerminalColors.foreground}18`,
+                backgroundColor: `${currentTerminalColors.background}ee`,
+              }}
+            >
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F56]" />
+                <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]" />
+                <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]" />
+              </div>
+              <div
+                className="text-[11px] font-sans font-medium tracking-wide opacity-70"
+                style={{ color: currentTerminalColors.foreground }}
+              >
+                ubuntu@vmaster-node: ~ (bash)
+              </div>
+              <div className="w-12 text-right text-[10px] opacity-40 font-mono">
+                {fontSize}px
+              </div>
+            </div>
+
+            {/* Terminal Body */}
+            <div
+              className="p-4 space-y-1.5 select-text"
+              style={{
+                fontSize: `${Math.max(11, Math.min(18, fontSize))}px`,
+                lineHeight: 1.45,
+              }}
+            >
+              <div>
+                <span style={{ color: currentTerminalColors.green, fontWeight: 'bold' }}>ubuntu@vmaster-node</span>
+                <span style={{ color: currentTerminalColors.foreground }}>:</span>
+                <span style={{ color: currentTerminalColors.blue }}>~</span>
+                <span style={{ color: currentTerminalColors.foreground }}>$ </span>
+                <span style={{ color: currentTerminalColors.foreground }}>uptime</span>
+              </div>
+              <div style={{ color: currentTerminalColors.brightBlack || currentTerminalColors.white, opacity: 0.85 }}>
+                {' '}13:30:24 up 42 days, 3 users, load average: 0.12, 0.08, 0.05
+              </div>
+              <div>
+                <span style={{ color: currentTerminalColors.green, fontWeight: 'bold' }}>ubuntu@vmaster-node</span>
+                <span style={{ color: currentTerminalColors.foreground }}>:</span>
+                <span style={{ color: currentTerminalColors.blue }}>~</span>
+                <span style={{ color: currentTerminalColors.foreground }}>$ </span>
+                <span style={{ color: currentTerminalColors.foreground }}>systemctl status nginx --no-pager</span>
+              </div>
+              <div>
+                <span style={{ color: currentTerminalColors.green }}>●</span>
+                <span style={{ color: currentTerminalColors.foreground }}> nginx.service - A high performance web server</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span style={{ color: currentTerminalColors.green, fontWeight: 'bold' }}>ubuntu@vmaster-node</span>
+                <span style={{ color: currentTerminalColors.foreground }}>:</span>
+                <span style={{ color: currentTerminalColors.blue }}>~</span>
+                <span style={{ color: currentTerminalColors.foreground }}>$ </span>
+                <span
+                  className="inline-block w-2 h-3.5 align-middle animate-pulse"
+                  style={{ backgroundColor: currentTerminalColors.cursor }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

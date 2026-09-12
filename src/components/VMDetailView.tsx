@@ -98,7 +98,7 @@ export const VMDetailView: React.FC = () => {
   const [tempSudoInput, setTempSudoInput] = useState('');
 
   const requestSudoPassword = (): Promise<string | null> => {
-    // If profile already has password or we already stored it this session, use it
+    if (existingSSHProfile?.sudoPassword) return Promise.resolve(existingSSHProfile.sudoPassword);
     if (sudoPassword) return Promise.resolve(sudoPassword);
     if (existingSSHProfile?.password) return Promise.resolve(existingSSHProfile.password);
 
@@ -108,6 +108,9 @@ export const VMDetailView: React.FC = () => {
         isOpen: true,
         callback: async (pass: string) => {
           setSudoPassword(pass);
+          if (existingSSHProfile && pass) {
+            saveSSHProfile({ ...existingSSHProfile, sudoPassword: pass });
+          }
           resolve(pass);
         },
       });
@@ -117,7 +120,7 @@ export const VMDetailView: React.FC = () => {
   const handleInstallSingleUpdate = async (pkgName: string) => {
     if (!selectedVM) return;
 
-    let pass = sudoPassword || existingSSHProfile?.password;
+    let pass = sudoPassword || existingSSHProfile?.sudoPassword || existingSSHProfile?.password;
     if (!pass && existingSSHProfile?.username !== 'root') {
       pass = (await requestSudoPassword()) || undefined;
       if (!pass) return;
@@ -137,6 +140,9 @@ export const VMDetailView: React.FC = () => {
       } else {
         if (res.error?.includes('password is required') || res.error?.includes('incorrect password')) {
           setSudoPassword('');
+          if (existingSSHProfile?.sudoPassword) {
+            saveSSHProfile({ ...existingSSHProfile, sudoPassword: '' });
+          }
           // Re-ask password
           requestSudoPassword().then(async (newPass) => {
             if (newPass) {
@@ -177,7 +183,7 @@ export const VMDetailView: React.FC = () => {
       return;
     }
 
-    let pass = sudoPassword || profile.password;
+    let pass = sudoPassword || profile.sudoPassword || profile.password;
     if (!pass && profile.username !== 'root') {
       pass = (await requestSudoPassword()) || undefined;
       if (!pass) return;
@@ -241,7 +247,7 @@ export const VMDetailView: React.FC = () => {
       host: existingSSHProfile.host || primaryIp || '',
     };
 
-    let pass = sudoPassword || profile.password;
+    let pass = sudoPassword || profile.sudoPassword || profile.password;
     if (!pass && profile.username !== 'root') {
       pass = (await requestSudoPassword()) || undefined;
       if (!pass) return;
@@ -297,7 +303,7 @@ export const VMDetailView: React.FC = () => {
 
     if (safePackages.length === 0) return;
 
-    let pass = sudoPassword || existingSSHProfile?.password;
+    let pass = sudoPassword || existingSSHProfile?.sudoPassword || existingSSHProfile?.password;
     if (!pass && existingSSHProfile?.username !== 'root') {
       pass = (await requestSudoPassword()) || undefined;
       if (!pass) return;
@@ -366,6 +372,9 @@ export const VMDetailView: React.FC = () => {
       } else {
         if (res.error?.includes('password is required') || res.error?.includes('incorrect password')) {
           setSudoPassword('');
+          if (existingSSHProfile?.sudoPassword) {
+            saveSSHProfile({ ...existingSSHProfile, sudoPassword: '' });
+          }
           setUpdateStatusMsg({
             type: 'error',
             text: 'Невірний або відсутній sudo пароль. Введіть коректний пароль користувача.',

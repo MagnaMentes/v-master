@@ -141,6 +141,7 @@ export class AppStore {
           ...p,
           password: this.decrypt(p.password),
           privateKeyPassphrase: this.decrypt(p.privateKeyPassphrase),
+          sudoPassword: this.decrypt(p.sudoPassword),
         }));
 
         return {
@@ -175,6 +176,7 @@ export class AppStore {
           ...p,
           password: this.encrypt(p.password),
           privateKeyPassphrase: this.encrypt(p.privateKeyPassphrase),
+          sudoPassword: this.encrypt(p.sudoPassword),
         })),
       };
 

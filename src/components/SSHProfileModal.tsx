@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Key, FolderOpen, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Key, FolderOpen, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import type { SSHProfile } from '../types';
 
 interface SSHProfileModalProps {
@@ -27,6 +27,8 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
   const [password, setPassword] = useState(initialProfile?.password || '');
   const [privateKeyPath, setPrivateKeyPath] = useState(initialProfile?.privateKeyPath || '~/.ssh/id_ed25519');
   const [privateKeyPassphrase, setPrivateKeyPassphrase] = useState(initialProfile?.privateKeyPassphrase || '');
+  const [sudoPassword, setSudoPassword] = useState(initialProfile?.sudoPassword || '');
+  const [showSudoPrompt, setShowSudoPrompt] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -41,6 +43,8 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
       setPassword(initialProfile?.password || '');
       setPrivateKeyPath(initialProfile?.privateKeyPath || '~/.ssh/id_ed25519');
       setPrivateKeyPassphrase(initialProfile?.privateKeyPassphrase || '');
+      setSudoPassword(initialProfile?.sudoPassword || '');
+      setShowSudoPrompt(false);
       setTestResult(null);
     }
   }, [isOpen, initialProfile, defaultVmid, defaultHost]);
@@ -108,6 +112,9 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
           success: true,
           message: 'SSH-зʼєднання успішно встановлено!',
         });
+        if (!sudoPassword && username !== 'root') {
+          setShowSudoPrompt(true);
+        }
       } else {
         setTestResult({
           success: false,
@@ -140,6 +147,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
         password,
         privateKeyPath,
         privateKeyPassphrase,
+        sudoPassword: sudoPassword ? sudoPassword.trim() : undefined,
         vmid: defaultVmid || initialProfile?.vmid,
       };
 
@@ -301,6 +309,27 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
             </div>
           )}
 
+          {/* Sudo Password (optional, encrypted in Keychain) */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block font-medium text-xs flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                <span>Пароль sudo (для системних операцій)</span>
+              </label>
+              <span className="text-[10px] text-zinc-400">Шифрується Keychain</span>
+            </div>
+            <input
+              type="password"
+              value={sudoPassword}
+              onChange={(e) => setSudoPassword(e.target.value)}
+              placeholder="Введіть пароль суперкористувача (sudo)"
+              className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
+            />
+            <p className="text-[11px] text-zinc-400 mt-1">
+              Зберігається в безпечному сховищі для оновлення пакетів та керування службами без повторних запитів.
+            </p>
+          </div>
+
           {testResult && (
             <div
               className={`p-3 rounded-lg border text-xs flex items-center gap-2 ${
@@ -315,6 +344,40 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                 <AlertCircle className="w-4 h-4 shrink-0" />
               )}
               <span>{testResult.message}</span>
+            </div>
+          )}
+
+          {showSudoPrompt && (
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/80 text-xs space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    Зберегти пароль sudo для цієї ВМ?
+                  </div>
+                  <div className="text-zinc-600 dark:text-zinc-400 text-[11px] leading-relaxed">
+                    Підключення успішне! Введіть пароль sudo, щоб не вводити його щоразу при встановленні оновлень ОС та перезапуску процесів.
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="password"
+                  value={sudoPassword}
+                  onChange={(e) => setSudoPassword(e.target.value)}
+                  placeholder="Введіть пароль sudo..."
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSudoPrompt(false)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors cursor-pointer"
+                >
+                  {sudoPassword ? 'Застосувати' : 'Пропустити'}
+                </button>
+              </div>
             </div>
           )}
 

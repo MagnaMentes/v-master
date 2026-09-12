@@ -23,7 +23,9 @@ The application combines hypervisor API capabilities with an integrated sysadmin
   - Simultaneous management of multiple interactive terminal sessions.
   - Native keyboard shortcuts: **`⌘ + T`** (new tab), **`⌘ + W`** (close tab), **`⌘ + 1..9`** (fast tab switching).
   - Live connection status indicators and unread activity badges.
+  - Interactive live preview of terminal color palettes (Dark, Light, Dracula, Monokai) and font sizing directly in Settings.
   - Profile-based auto-connect, macOS Keychain `ssh-agent` integration, and private SSH key authentication (`~/.ssh/id_rsa`, `id_ed25519`).
+  - Secure sudo password storage in macOS Keychain with an automatic prompt right after a successful connection test.
   - Customizable snippet library for 1-click command execution.
 
 - **Proxmox VE Cluster & Batch VM Operations**:
@@ -35,11 +37,12 @@ The application combines hypervisor API capabilities with an integrated sysadmin
 - **Safe OS Updates with Pre-Update Safety Snapshots**:
   - Automatic pre-update safety snapshot creation before running package upgrades.
   - One-click rollback button if updates cause issues or service regressions.
+  - Automated sudo password reuse without redundant modal password prompts during updates.
   - Classification into critical security updates vs. standard packages.
   - Isolated single-session execution to prevent dropped connections or Fail2ban lockouts during core package upgrades (`libc-bin`, `sshd`).
 
 - **Deep System Diagnostics & Live Journalctl Viewer**:
-  - Interactive systemd `journalctl` log viewer with priority filters (*All*, *Errors*, *Warnings*), unit filtering (`ssh`, `nginx`, `docker`), and real-time substring search.
+  - Interactive systemd `journalctl` log viewer with continuous streaming of new lines without resetting or flashing the view, smart auto-scrolling, priority filters (*All*, *Errors*, *Warnings*), unit filtering (`ssh`, `nginx`, `docker`), and real-time substring search.
   - Real-time top CPU and memory-consuming process analytics.
   - Process termination (`kill`, `SIGKILL`), systemd service management, and Linux page cache flushing (`drop_caches`).
 

@@ -97,6 +97,7 @@ export interface SSHProfile {
   password?: string;
   privateKeyPath?: string;
   privateKeyPassphrase?: string;
+  sudoPassword?: string;
   vmid?: number;
   node?: string;
   serverId?: string;
