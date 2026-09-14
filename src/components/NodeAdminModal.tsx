@@ -320,18 +320,42 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 <>
                   {/* Quick KPI stats */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
-                      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                        <span>CPU модель та ядра</span>
-                        <Cpu className="w-4 h-4 text-amber-500" />
-                      </div>
-                      <div className="mt-2 text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate" title={nodeStatus?.cpuinfo?.model}>
-                        {nodeStatus?.cpuinfo?.model || 'Процесор вузла'}
-                      </div>
-                      <div className="mt-1 text-xs text-zinc-500 font-mono">
-                        {nodeStatus?.cpuinfo?.cpus || 1} CPU cores ({nodeStatus?.cpuinfo?.sockets || 1} сокетів, {nodeStatus?.cpuinfo?.cores || 1} ядер)
-                      </div>
-                    </div>
+                    {/* CPU Utilization & Spec */}
+                    {(() => {
+                      const cpuVal = typeof nodeStatus?.cpu === 'number' ? nodeStatus.cpu * 100 : 0;
+                      const cpuPct = cpuVal.toFixed(1);
+                      const cpuColor = cpuVal > 85 ? 'bg-rose-500' : cpuVal > 60 ? 'bg-amber-500' : 'bg-blue-500';
+                      const textColor = cpuVal > 85 ? 'text-rose-500' : cpuVal > 60 ? 'text-amber-500' : 'text-blue-500';
+                      const loadAvgStr = Array.isArray(nodeStatus?.loadavg) ? nodeStatus.loadavg.join(', ') : '';
+
+                      return (
+                        <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
+                          <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                            <span>Завантаження CPU</span>
+                            <Cpu className="w-4 h-4 text-blue-500" />
+                          </div>
+                          <div className="mt-2 flex items-baseline justify-between">
+                            <span className={`text-lg font-bold ${textColor}`}>
+                              {cpuPct}%
+                            </span>
+                            {loadAvgStr && (
+                              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono" title="Load Average (1, 5, 15 хв)">
+                                LA: {loadAvgStr}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`${cpuColor} h-full rounded-full transition-all`}
+                              style={{ width: `${Math.min(cpuVal, 100)}%` }}
+                            />
+                          </div>
+                          <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 truncate" title={nodeStatus?.cpuinfo?.model}>
+                            {nodeStatus?.cpuinfo?.cpus || 1} CPU cores • {nodeStatus?.cpuinfo?.model || 'Процесор вузла'}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
                       <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">

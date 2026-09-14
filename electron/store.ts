@@ -3,11 +3,20 @@ import fs from 'fs';
 import path from 'path';
 import type { ProxmoxServerConfig, SSHProfile, Snippet, AppSettings } from '../src/types';
 
+export interface WindowBounds {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  isMaximized?: boolean;
+}
+
 interface StoreData {
   servers: ProxmoxServerConfig[];
   sshProfiles: SSHProfile[];
   snippets: Snippet[];
   settings: AppSettings;
+  windowBounds?: WindowBounds;
 }
 
 const defaultSnippets: Snippet[] = [
@@ -254,6 +263,15 @@ export class AppStore {
 
   public saveSettings(settings: Partial<AppSettings>): void {
     this.data.settings = { ...this.data.settings, ...settings };
+    this.save();
+  }
+
+  public getWindowBounds(): WindowBounds | undefined {
+    return this.data.windowBounds;
+  }
+
+  public saveWindowBounds(bounds: WindowBounds): void {
+    this.data.windowBounds = bounds;
     this.save();
   }
 }

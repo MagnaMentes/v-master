@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, shell, Notification, screen } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -31,12 +31,41 @@ const diagnostics = new DiagnosticsService(ssh);
 
 function createWindow() {
   const isMac = process.platform === 'darwin';
+  const savedBounds = store.getWindowBounds();
+
+  let initialWidth = 1300;
+  let initialHeight = 850;
+  let initialX: number | undefined;
+  let initialY: number | undefined;
+
+  if (savedBounds) {
+    initialWidth = Math.max(1000, savedBounds.width || 1300);
+    initialHeight = Math.max(650, savedBounds.height || 850);
+
+    // Ensure saved position is visible on an active display
+    if (savedBounds.x !== undefined && savedBounds.y !== undefined) {
+      const isVisible = screen.getAllDisplays().some((display) => {
+        const { x, y, width, height } = display.bounds;
+        return (
+          savedBounds.x! >= x &&
+          savedBounds.x! < x + width &&
+          savedBounds.y! >= y &&
+          savedBounds.y! < y + height
+        );
+      });
+      if (isVisible) {
+        initialX = savedBounds.x;
+        initialY = savedBounds.y;
+      }
+    }
+  }
 
   win = new BrowserWindow({
-    width: 1300,
-    height: 850,
+    width: initialWidth,
+    height: initialHeight,
     minWidth: 1000,
     minHeight: 650,
+    ...(initialX !== undefined && initialY !== undefined ? { x: initialX, y: initialY } : {}),
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     ...(isMac ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
     icon: path.join(__dirname, '../public/icon.png'),
@@ -48,6 +77,45 @@ function createWindow() {
       sandbox: false,
     },
   });
+
+  if (savedBounds?.isMaximized) {
+    win.maximize();
+  }
+
+  // Debounced auto-saving of window size, position, and maximized state
+  let saveTimeout: NodeJS.Timeout | null = null;
+  const persistBounds = () => {
+    if (!win || win.isDestroyed()) return;
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      if (!win || win.isDestroyed()) return;
+      const isMaximized = win.isMaximized();
+      if (!isMaximized) {
+        const bounds = win.getBounds();
+        store.saveWindowBounds({
+          width: bounds.width,
+          height: bounds.height,
+          x: bounds.x,
+          y: bounds.y,
+          isMaximized: false,
+        });
+      } else {
+        const current = store.getWindowBounds();
+        store.saveWindowBounds({
+          width: current?.width || 1300,
+          height: current?.height || 850,
+          x: current?.x,
+          y: current?.y,
+          isMaximized: true,
+        });
+      }
+    }, 300);
+  };
+
+  win.on('resize', persistBounds);
+  win.on('move', persistBounds);
+  win.on('maximize', persistBounds);
+  win.on('unmaximize', persistBounds);
 
   win.webContents.on('preload-error', (_event, preloadPath, error) => {
     console.error('PRELOAD ERROR:', preloadPath, error);
