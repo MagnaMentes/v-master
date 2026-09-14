@@ -791,6 +791,15 @@ export const DashboardView: React.FC = () => {
         />
       )}
 
+      {/* Add New Server Modal */}
+      {isServerModalOpen && (
+        <ServerModal
+          isOpen={isServerModalOpen}
+          onClose={() => setIsServerModalOpen(false)}
+          onSave={saveServer}
+        />
+      )}
+
       {/* Edit Server Modal */}
       {isEditServerModalOpen && activeServer && (
         <ServerModal
