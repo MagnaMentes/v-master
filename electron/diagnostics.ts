@@ -184,10 +184,12 @@ ps aux --sort=-%mem | head -n 35
       if (action === 'kill') {
         const pid = parseInt(target, 10);
         if (isNaN(pid)) return { success: false, error: 'Некоректний PID' };
+        if (pid <= 2) return { success: false, error: 'Зупинка системних процесів ядра та init (PID <= 2) заборонена' };
         rawCmd = `kill ${pid}`;
       } else if (action === 'kill-9') {
         const pid = parseInt(target, 10);
         if (isNaN(pid)) return { success: false, error: 'Некоректний PID' };
+        if (pid <= 2) return { success: false, error: 'Зупинка системних процесів ядра та init (PID <= 2) заборонена' };
         rawCmd = `kill -9 ${pid}`;
       } else if (action === 'restart-service') {
         // Sanitize service name

@@ -48,10 +48,13 @@ The application combines all essential sysadmin tools in a single workspace: hyp
 - **Live Journalctl**: real-time continuous streaming of systemd `journalctl` logs with severity filters (*All*, *Errors*, *Warnings*) and substring search.
 - **Process Analytics**: inspect top CPU and memory-consuming processes, terminate rogue tasks (`kill`), and flush OS disk cache (`drop_caches`).
 
-### 🛡️ Safe OS Package Updates (Safety Snapshots)
-- Automatically takes a safety snapshot before applying OS packages.
-- One-click rollback button to immediately revert VM state if updates cause regressions.
-- Transparent classification of updates into security advisories vs. regular package upgrades.
+### 🛡️ Multi-Tier Safety & Critical Operation Safeguards
+- **Proxmox Host Network Protection**: prevents accidental deletion of primary management bridge (`vmbr0`) and requires typed node name confirmation before applying network reloads (`ifupdown2 reload`).
+- **Node Power Safeguards**: verifies active VMs/CTs prior to node reboot/shutdown with mandatory typed node name confirmation to prevent accidental outages.
+- **Snapshot Rollback & Hard Stop Protection**: requires explicit typed snapshot name confirmation to prevent irreversible data loss; provides clear warnings against unbuffered Hard Stops.
+- **SFTP Root System File Protection**: enforced blacklist for root system directories (`/etc`, `/boot`, `/var`, `/usr`, etc.) across both UI and backend; requires typed folder name confirmation for directory deletions.
+- **Kernel & Init Process Preservation**: blocks terminating core system processes (PID ≤ 2) in the resource manager.
+- **Server & Profile Deletion Confirmations**: protected dialogues before removing Proxmox server connections or SSH credentials.
 
 ---
 

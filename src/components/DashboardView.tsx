@@ -51,6 +51,7 @@ export const DashboardView: React.FC = () => {
   const [selectedNodeServices, setSelectedNodeServices] = useState<string | null>(null);
   const [selectedNodeAdmin, setSelectedNodeAdmin] = useState<string | null>(null);
   const [confirmNodeAction, setConfirmNodeAction] = useState<{ node: string; action: 'reboot' | 'shutdown' } | null>(null);
+  const [confirmNodeInputText, setConfirmNodeInputText] = useState('');
   const [confirmVMAction, setConfirmVMAction] = useState<{ vm: ProxmoxVM; action: 'stop' | 'reboot' } | null>(null);
   const [isNodeActionLoading, setIsNodeActionLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -812,59 +813,95 @@ export const DashboardView: React.FC = () => {
       )}
 
       {/* Confirm Node Reboot Modal */}
-      {confirmNodeAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
-          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="w-5 h-5" />
+      {confirmNodeAction && (() => {
+        const runningVMsOnNode = vms.filter((v) => v.node === confirmNodeAction.node && v.status === 'running');
+        const hasRunningVMs = runningVMsOnNode.length > 0;
+        const isConfirmDisabled = isNodeActionLoading || (hasRunningVMs && confirmNodeInputText.trim() !== confirmNodeAction.node);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
+            <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    {confirmNodeAction.action === 'shutdown' ? 'Вимкнення вузла' : 'Перезавантаження вузла'}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Вузол: {confirmNodeAction.node}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  Перезавантаження вузла
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Вузол: {confirmNodeAction.node}
+
+              <div className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-2">
+                <p>
+                  Ви впевнені, що бажаєте {confirmNodeAction.action === 'shutdown' ? 'вимкнути' : 'перезавантажити'} весь фізичний сервер Proxmox <strong>{confirmNodeAction.node}</strong>?
                 </p>
+                {hasRunningVMs ? (
+                  <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-[11px]">
+                    <strong>Критична дія:</strong> На цьому вузлі зараз працює <strong>{runningVMsOnNode.length}</strong> активних віртуальних машин/контейнерів. Вони будуть аварійно зупинені!
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    На вузлі немає активних віртуальних машин.
+                  </p>
+                )}
               </div>
-            </div>
 
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              Ви впевнені, що бажаєте перезавантажити весь сервер Proxmox <strong>{confirmNodeAction.node}</strong>? Усі запущені віртуальні машини будуть тимчасово перезавантажені.
-            </p>
+              {hasRunningVMs && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Введіть <strong>{confirmNodeAction.node}</strong> для підтвердження:
+                  </label>
+                  <input
+                    type="text"
+                    value={confirmNodeInputText}
+                    onChange={(e) => setConfirmNodeInputText(e.target.value)}
+                    placeholder={confirmNodeAction.node}
+                    className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+              )}
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
-              <button
-                type="button"
-                onClick={() => setConfirmNodeAction(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                Скасувати
-              </button>
-              <button
-                type="button"
-                disabled={isNodeActionLoading}
-                onClick={async () => {
-                  if (!activeServer || !confirmNodeAction) return;
-                  setIsNodeActionLoading(true);
-                  try {
-                    await window.api.proxmox.executeNodeAction(activeServer, confirmNodeAction.node, confirmNodeAction.action);
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
+                <button
+                  type="button"
+                  onClick={() => {
                     setConfirmNodeAction(null);
-                    await refreshClusterData();
-                  } catch (e: any) {
-                    alert(`Помилка: ${e.message}`);
-                  } finally {
-                    setIsNodeActionLoading(false);
-                  }
-                }}
-                className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer"
-              >
-                {isNodeActionLoading ? 'Виконання...' : 'Підтвердити'}
-              </button>
+                    setConfirmNodeInputText('');
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="button"
+                  disabled={isConfirmDisabled}
+                  onClick={async () => {
+                    if (!activeServer || !confirmNodeAction) return;
+                    setIsNodeActionLoading(true);
+                    try {
+                      await window.api.proxmox.executeNodeAction(activeServer, confirmNodeAction.node, confirmNodeAction.action);
+                      setConfirmNodeAction(null);
+                      setConfirmNodeInputText('');
+                      await refreshClusterData();
+                    } catch (e: any) {
+                      alert(`Помилка: ${e.message}`);
+                    } finally {
+                      setIsNodeActionLoading(false);
+                    }
+                  }}
+                  className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isNodeActionLoading ? 'Виконання...' : 'Підтвердити'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Confirm VM Power Action Modal */}
       {confirmVMAction && (
@@ -882,7 +919,7 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  {confirmVMAction.action === 'stop' ? 'Зупинка віртуальної машини' : 'Перезавантаження ВМ'}
+                  {confirmVMAction.action === 'stop' ? 'Примусова зупинка (Hard Stop)' : 'Перезавантаження ВМ'}
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {confirmVMAction.vm.name} (VMID: {confirmVMAction.vm.vmid})
@@ -892,7 +929,7 @@ export const DashboardView: React.FC = () => {
 
             <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {confirmVMAction.action === 'stop'
-                ? `Ви впевнені, що бажаєте зупинити ВМ "${confirmVMAction.vm.name}"? Робота всіх активних процесів та сервісів буде перервана.`
+                ? `Ви впевнені, що бажаєте примусово зупинити ВМ "${confirmVMAction.vm.name}"? Увага: це аналог раптового знеструмлення, незбережені дані та стан баз даних можуть бути пошкоджені.`
                 : `Ви впевнені, що бажаєте надіслати команду перезавантаження для ВМ "${confirmVMAction.vm.name}"?`}
             </p>
 

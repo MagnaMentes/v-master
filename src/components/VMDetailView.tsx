@@ -79,8 +79,10 @@ export const VMDetailView: React.FC = () => {
     isOpen: boolean;
     title: string;
     message: string;
+    expectedInput?: string;
     action: () => Promise<void>;
   }>({ isOpen: false, title: '', message: '', action: async () => {} });
+  const [confirmInputText, setConfirmInputText] = useState('');
 
   const [updatingPackage, setUpdatingPackage] = useState<string | null>(null);
   const [updateStatusMsg, setUpdateStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -617,10 +619,11 @@ export const VMDetailView: React.FC = () => {
     };
 
     if (action === 'stop') {
+      setConfirmInputText('');
       setConfirmModal({
         isOpen: true,
-        title: 'Примусова зупинка ВМ',
-        message: `Ви впевнені, що бажаєте примусово зупинити ВМ "${selectedVM.name}" (VMID: ${selectedVM.vmid})? Це аналог висмикування живлення і може призвести до втрати незбережених даних.`,
+        title: 'Примусова зупинка ВМ (Hard Stop)',
+        message: `Ви впевнені, що бажаєте примусово зупинити ВМ "${selectedVM.name}" (VMID: ${selectedVM.vmid})? Це аварійне знеструмлення без синхронізації кешу дисків. Для штатної зупинки використовуйте "Вимкнути (Shutdown)".`,
         action: perform,
       });
       return;
@@ -676,10 +679,12 @@ export const VMDetailView: React.FC = () => {
 
   const handleRollbackSnapshot = (snap: VMSnapshot) => {
     if (!activeServer) return;
+    setConfirmInputText('');
     setConfirmModal({
       isOpen: true,
       title: 'Відкат снапшота',
-      message: `Ви впевнені, що бажаєте відкотити стан ВМ до снапшота "${snap.name}"? Поточні незбережені зміни після знімка буде втрачено.`,
+      message: `УВАГА! Ви збираєтесь відкотити стан ВМ до снапшота "${snap.name}". Усі поточні незбережені зміни, файли та стан бази даних після моменту створення знімка буде БЕЗПОВОРОТНО ВТРАЧЕНО!`,
+      expectedInput: snap.name,
       action: async () => {
         setIsActionLoading(true);
         try {
@@ -697,10 +702,12 @@ export const VMDetailView: React.FC = () => {
 
   const handleDeleteSnapshot = (snap: VMSnapshot) => {
     if (!activeServer) return;
+    setConfirmInputText('');
     setConfirmModal({
       isOpen: true,
       title: 'Видалення снапшота',
-      message: `Видалити снапшот "${snap.name}"? Цю дію неможливо скасувати.`,
+      message: `Ви дійсно бажаєте видалити снапшот "${snap.name}"? Цю дію неможливо скасувати.`,
+      expectedInput: snap.name,
       action: async () => {
         setIsActionLoading(true);
         try {
@@ -2032,25 +2039,46 @@ export const VMDetailView: React.FC = () => {
               <AlertTriangle className="w-5 h-5" />
               <h3 className="text-sm font-bold">{confirmModal.title}</h3>
             </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-3 leading-relaxed">
               {confirmModal.message}
             </p>
+
+            {confirmModal.expectedInput && (
+              <div className="mb-4 space-y-1.5">
+                <label className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Введіть <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{confirmModal.expectedInput}</span> для підтвердження:
+                </label>
+                <input
+                  type="text"
+                  value={confirmInputText}
+                  onChange={(e) => setConfirmInputText(e.target.value)}
+                  placeholder={confirmModal.expectedInput}
+                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-1 focus:ring-rose-500 font-mono"
+                />
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
-                className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                onClick={() => {
+                  setConfirmModal({ ...confirmModal, isOpen: false });
+                  setConfirmInputText('');
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
               >
                 Скасувати
               </button>
               <button
                 type="button"
+                disabled={Boolean(confirmModal.expectedInput && confirmInputText.trim() !== confirmModal.expectedInput)}
                 onClick={async () => {
                   const act = confirmModal.action;
                   setConfirmModal({ ...confirmModal, isOpen: false });
+                  setConfirmInputText('');
                   await act();
                 }}
-                className="px-4 py-1.5 rounded-lg text-xs bg-red-600 hover:bg-red-700 text-white font-medium shadow-xs"
+                className="px-4 py-1.5 rounded-lg text-xs bg-red-600 hover:bg-red-700 text-white font-medium shadow-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 Підтвердити
               </button>

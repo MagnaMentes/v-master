@@ -161,7 +161,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     description: string;
     targetName: string;
     expectedConfirmText: string;
-    actionType: 'wipe-disk' | 'init-gpt' | 'delete-storage';
+    actionType: 'wipe-disk' | 'init-gpt' | 'delete-storage' | 'delete-network' | 'apply-network';
     targetPath?: string;
     onConfirm: () => Promise<void>;
   } | null>(null);
@@ -331,32 +331,55 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
   const handleDeleteNetwork = async (iface: string) => {
     if (!activeServer || !nodeName) return;
-    if (!confirm(`Ви дійсно бажаєте видалити мережевий інтерфейс ${iface}?`)) return;
-    try {
-      await window.api.proxmox.deleteNodeNetwork(activeServer, nodeName, iface);
-      setCrudActionStatus({ type: 'success', text: `Інтерфейс ${iface} позначено для видалення` });
-      setNetworkPendingChanges(true);
-      await loadNetwork();
-    } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Не вдалося видалити інтерфейс' });
+    if (iface === 'vmbr0') {
+      setCrudActionStatus({ type: 'error', text: 'Видалення головного інтерфейсу керування (vmbr0) заблоковано задля безпеки вузла' });
+      return;
     }
+    setDangerModal({
+      isOpen: true,
+      title: `Видалення мережевого інтерфейсу ${iface}`,
+      description: `Ви збираєтесь позначити мережевий інтерфейс ${iface} для видалення. Якщо це активний міст або фізичний порт, хост може втратити зв'язок.`,
+      targetName: iface,
+      actionType: 'delete-network',
+      expectedConfirmText: iface,
+      onConfirm: async () => {
+        try {
+          await window.api.proxmox.deleteNodeNetwork(activeServer, nodeName, iface);
+          setCrudActionStatus({ type: 'success', text: `Інтерфейс ${iface} позначено для видалення` });
+          setNetworkPendingChanges(true);
+          await loadNetwork();
+        } catch (err: any) {
+          setCrudActionStatus({ type: 'error', text: err.message || 'Не вдалося видалити інтерфейс' });
+        }
+      },
+    });
   };
 
   const handleApplyNetwork = async () => {
     if (!activeServer || !nodeName) return;
-    setApplyingNetwork(true);
-    try {
-      const res = await window.api.proxmox.applyNodeNetworkChanges(activeServer, nodeName);
-      if (res.success) {
-        setCrudActionStatus({ type: 'success', text: 'Зміни конфігурації мережі успішно застосовано!' });
-        setNetworkPendingChanges(false);
-        await loadNetwork();
-      }
-    } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка застосування змін мережі' });
-    } finally {
-      setApplyingNetwork(false);
-    }
+    setDangerModal({
+      isOpen: true,
+      title: 'Застосування конфігурації мережі',
+      description: `Увага! Перезавантаження мережевого стеку (ifupdown2 reload) вузла "${nodeName}". У разі помилкових IP або шлюзів зв'язок із сервером буде повністю втрачено!`,
+      targetName: nodeName,
+      actionType: 'apply-network',
+      expectedConfirmText: nodeName,
+      onConfirm: async () => {
+        setApplyingNetwork(true);
+        try {
+          const res = await window.api.proxmox.applyNodeNetworkChanges(activeServer, nodeName);
+          if (res.success) {
+            setCrudActionStatus({ type: 'success', text: 'Зміни конфігурації мережі успішно застосовано!' });
+            setNetworkPendingChanges(false);
+            await loadNetwork();
+          }
+        } catch (err: any) {
+          setCrudActionStatus({ type: 'error', text: err.message || 'Помилка застосування змін мережі' });
+        } finally {
+          setApplyingNetwork(false);
+        }
+      },
+    });
   };
 
   const handleRevertNetwork = async () => {
@@ -1433,9 +1456,10 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             </button>
                             <button
                               type="button"
+                              disabled={net.iface === 'vmbr0'}
                               onClick={() => handleDeleteNetwork(net.iface)}
-                              title="Видалити інтерфейс"
-                              className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                              title={net.iface === 'vmbr0' ? 'Головний інтерфейс керування захищено від видалення' : 'Видалити інтерфейс'}
+                              className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

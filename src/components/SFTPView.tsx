@@ -12,12 +12,35 @@ import {
   Loader2,
   Key,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   FileCode,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { SFTPFileEditorModal } from './SFTPFileEditorModal';
 import type { SFTPItem, SSHProfile } from '../types';
+
+const PROTECTED_SYSTEM_PATHS = [
+  '/',
+  '/bin',
+  '/boot',
+  '/dev',
+  '/etc',
+  '/home',
+  '/lib',
+  '/lib64',
+  '/media',
+  '/mnt',
+  '/opt',
+  '/proc',
+  '/root',
+  '/run',
+  '/sbin',
+  '/srv',
+  '/sys',
+  '/usr',
+  '/var',
+];
 
 export const SFTPView: React.FC = () => {
   const { sshProfiles, selectedVM } = useApp();
@@ -42,6 +65,10 @@ export const SFTPView: React.FC = () => {
 
   // File editor modal state
   const [editingFile, setEditingFile] = useState<{ path: string; name: string } | null>(null);
+
+  // Safe delete modal state
+  const [deleteModalItem, setDeleteModalItem] = useState<SFTPItem | null>(null);
+  const [deleteInputText, setDeleteInputText] = useState('');
 
   // Drag-and-drop upload state
   const [isDragging, setIsDragging] = useState(false);
@@ -205,13 +232,23 @@ export const SFTPView: React.FC = () => {
     }
   };
 
-  const handleDeleteItem = async (item: SFTPItem) => {
-    if (!selectedProfile) return;
-    if (!confirm(`Ви дійсно бажаєте видалити ${item.type === 'directory' ? 'директорію' : 'файл'} "${item.name}"?`)) {
+  const handleDeleteItem = (item: SFTPItem) => {
+    const remotePath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
+    const normalized = remotePath.replace(/\/+$/, '') || '/';
+    if (PROTECTED_SYSTEM_PATHS.includes(normalized)) {
+      setError(`Видалення системного каталогу "${remotePath}" суворо заборонено.`);
       return;
     }
+    setDeleteInputText('');
+    setDeleteModalItem(item);
+  };
 
+  const confirmDelete = async () => {
+    if (!selectedProfile || !deleteModalItem) return;
+    const item = deleteModalItem;
     const remotePath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
+    setDeleteModalItem(null);
+    setDeleteInputText('');
     setIsLoading(true);
     try {
       const res = await window.api.sftp.delete(selectedProfile, remotePath, item.type === 'directory');
@@ -518,6 +555,69 @@ export const SFTPView: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+
+      {/* Safe Delete Modal */}
+      {deleteModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
+          <div className="w-full max-w-sm bg-white dark:bg-[#202023] rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {deleteModalItem.type === 'directory' ? 'Видалення директорії' : 'Видалення файлу'}
+                </h3>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[200px]">
+                  {deleteModalItem.name}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              {deleteModalItem.type === 'directory'
+                ? `Ви збираєтесь безповоротно видалити директорію "${deleteModalItem.name}" та весь її внутрішній вміст.`
+                : `Ви збираєтесь видалити файл "${deleteModalItem.name}". Цю дію неможливо скасувати.`}
+            </p>
+
+            {deleteModalItem.type === 'directory' && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Введіть назву <strong className="font-mono text-zinc-900 dark:text-zinc-100">{deleteModalItem.name}</strong> для підтвердження:
+                </label>
+                <input
+                  type="text"
+                  value={deleteInputText}
+                  onChange={(e) => setDeleteInputText(e.target.value)}
+                  placeholder={deleteModalItem.name}
+                  className="w-full px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalItem(null);
+                  setDeleteInputText('');
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(deleteModalItem.type === 'directory' && deleteInputText.trim() !== deleteModalItem.name)}
+                onClick={confirmDelete}
+                className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Видалити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
   );
 };

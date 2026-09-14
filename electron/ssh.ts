@@ -340,6 +340,35 @@ export class SSHService {
     remotePath: string,
     isDir: boolean
   ): Promise<{ success: boolean; error?: string }> {
+    const normalized = remotePath.replace(/\/+$/, '') || '/';
+    const protectedPaths = [
+      '/',
+      '/bin',
+      '/boot',
+      '/dev',
+      '/etc',
+      '/home',
+      '/lib',
+      '/lib64',
+      '/media',
+      '/mnt',
+      '/opt',
+      '/proc',
+      '/root',
+      '/run',
+      '/sbin',
+      '/srv',
+      '/sys',
+      '/usr',
+      '/var',
+    ];
+    if (protectedPaths.includes(normalized)) {
+      return {
+        success: false,
+        error: `Видалення системного каталогу "${remotePath}" суворо заборонено`,
+      };
+    }
+
     const sftp = await this.getSftpClient(profile);
     try {
       if (isDir) {

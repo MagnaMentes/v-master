@@ -906,10 +906,10 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                                 </button>
                               )}
                               <button
-                                disabled={isActing}
+                                disabled={isActing || p.pid <= 2}
                                 onClick={() => handleAction('kill', p.pid.toString(), p.pid)}
-                                className="px-2 py-1 rounded-md text-[11px] font-medium bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors flex items-center gap-1 disabled:opacity-50"
-                                title="Зупинити процес (kill)"
+                                className="px-2 py-1 rounded-md text-[11px] font-medium bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={p.pid <= 2 ? 'Системний процес захищений від зупинки' : 'Зупинити процес (kill)'}
                               >
                                 <X className="w-3 h-3" />
                                 <span>Зупинити</span>

@@ -10,6 +10,7 @@ import {
   Trash2,
   Edit2,
   Plus,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useApp } from '../contexts/AppContext';
@@ -27,6 +28,13 @@ export const SettingsView: React.FC = () => {
 
   const [editingSSHProfile, setEditingSSHProfile] = useState<SSHProfile | null>(null);
   const [isSSHModalOpen, setIsSSHModalOpen] = useState(false);
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'server' | 'ssh';
+    id: string;
+    title: string;
+    description: string;
+  } | null>(null);
 
   const [fontSize, setFontSize] = useState<number>(settings?.terminalFontSize || 14);
 
@@ -281,9 +289,16 @@ export const SettingsView: React.FC = () => {
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => deleteServer(srv.id)}
+                    onClick={() =>
+                      setDeleteConfirm({
+                        type: 'server',
+                        id: srv.id,
+                        title: 'Видалення сервера Proxmox',
+                        description: `Ви дійсно бажаєте видалити сервер "${srv.name}" (${srv.host})? Усі збережені дані авторизації цього сервера буде видалено.`,
+                      })
+                    }
                     title="Видалити"
-                    className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500"
+                    className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -306,7 +321,7 @@ export const SettingsView: React.FC = () => {
               setEditingSSHProfile(null);
               setIsSSHModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Додати профіль</span>
@@ -332,14 +347,21 @@ export const SettingsView: React.FC = () => {
                       setIsSSHModalOpen(true);
                     }}
                     title="Редагувати"
-                    className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500"
+                    className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => deleteSSHProfile(p.id)}
+                    onClick={() =>
+                      setDeleteConfirm({
+                        type: 'ssh',
+                        id: p.id,
+                        title: 'Видалення SSH профілю',
+                        description: `Ви дійсно бажаєте видалити збережений SSH профіль "${p.name}" (${p.username}@${p.host})?`,
+                      })
+                    }
                     title="Видалити"
-                    className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500"
+                    className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -364,6 +386,53 @@ export const SettingsView: React.FC = () => {
         initialProfile={editingSSHProfile}
         allProfiles={sshProfiles}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
+          <div className="w-full max-w-sm bg-white dark:bg-[#202023] rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {deleteConfirm.title}
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              {deleteConfirm.description}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const target = deleteConfirm;
+                  setDeleteConfirm(null);
+                  if (target.type === 'server') {
+                    await deleteServer(target.id);
+                  } else {
+                    await deleteSSHProfile(target.id);
+                  }
+                }}
+                className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer"
+              >
+                Видалити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
