@@ -91,10 +91,21 @@ export const AppUpdateToast: React.FC = () => {
     setShowPostUpdateToast(false);
   };
 
+  const decodeHtmlEntities = (text: string) => {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  };
+
   const parseCleanLines = (notesText: string) => {
+    const decoded = decodeHtmlEntities(notesText);
+
     // If electron-updater provides HTML string (<h3>, <ul>, <li>), extract <li> content or strip tags
-    if (/<li[^>]*>/i.test(notesText)) {
-      const matches = notesText.match(/<li[^>]*>(.*?)<\/li>/gis);
+    if (/<li[^>]*>/i.test(decoded)) {
+      const matches = decoded.match(/<li[^>]*>(.*?)<\/li>/gis);
       if (matches && matches.length > 0) {
         return matches
           .map((m) => m.replace(/<[^>]+>/g, '').trim())
@@ -104,7 +115,7 @@ export const AppUpdateToast: React.FC = () => {
     }
 
     // Fallback plain markdown/text stripping
-    return notesText
+    return decoded
       .replace(/<[^>]+>/g, '') // strip all remaining html tags
       .split('\n')
       .map((l) => l.trim().replace(/^[-*•]\s*/, ''))
@@ -131,15 +142,15 @@ export const AppUpdateToast: React.FC = () => {
     if (cleanLines.length === 0) return null;
 
     return (
-      <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-2.5 text-[11px] border border-zinc-200/70 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-300">
-        <div className="font-semibold text-zinc-700 dark:text-zinc-200 mb-1 flex items-center gap-1.5">
+      <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-3 text-[11px] border border-zinc-200/70 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-300">
+        <div className="font-semibold text-zinc-700 dark:text-zinc-200 mb-1.5 flex items-center gap-1.5">
           <span>Що нового:</span>
         </div>
-        <ul className="space-y-1 pl-1">
+        <ul className="space-y-1.5 pl-1 max-h-52 overflow-y-auto pr-1">
           {cleanLines.map((line, idx) => (
-            <li key={idx} className="flex items-start gap-1.5 leading-tight">
-              <span className="text-indigo-500 dark:text-indigo-400 mt-0.5">•</span>
-              <span className="truncate">{line.replace(/^-\s*/, '')}</span>
+            <li key={idx} className="flex items-start gap-1.5 leading-normal">
+              <span className="text-indigo-500 dark:text-indigo-400 mt-0.5 shrink-0">•</span>
+              <span className="break-words whitespace-pre-wrap">{line.replace(/^-\s*/, '')}</span>
             </li>
           ))}
         </ul>
@@ -166,7 +177,7 @@ export const AppUpdateToast: React.FC = () => {
   if (showPostUpdateToast && postUpdateNotes && !updateInfo) {
     const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
     return (
-      <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-in fade-in slide-in-from-bottom-5 duration-300">
+      <div className="fixed bottom-5 right-5 z-50 max-w-md w-full animate-in fade-in slide-in-from-bottom-5 duration-300">
         <div className="bg-white/95 dark:bg-[#202024]/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl p-4 text-zinc-900 dark:text-zinc-100 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">

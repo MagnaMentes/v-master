@@ -491,10 +491,18 @@ export const VMDetailView: React.FC = () => {
     setIsBackupsLoading(true);
     if (selectedVM) {
       loadSnapshots();
-      loadRRDData();
       loadBackups();
     }
-  }, [selectedVM?.vmid, selectedVM?.status, loadSnapshots, loadRRDData, loadBackups]);
+  }, [selectedVM?.vmid, selectedVM?.status, loadSnapshots, loadBackups]);
+
+  // Load RRD historical metrics independently on VM or timeframe change
+  useEffect(() => {
+    if (selectedVM) {
+      loadRRDData();
+    } else {
+      setRrdData([]);
+    }
+  }, [selectedVM?.vmid, selectedVM?.status, loadRRDData]);
 
   // Poll metrics every 3 seconds for active VM
   useEffect(() => {
@@ -1246,10 +1254,10 @@ export const VMDetailView: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-5">
-          {isRRDLoading ? (
+        <div className="p-5 relative min-h-[170px]">
+          {isRRDLoading && rrdData.length === 0 ? (
             <div className="py-12 flex items-center justify-center gap-2 text-zinc-400 text-xs">
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
               <span>Завантаження історичних метрик...</span>
             </div>
           ) : rrdData.length === 0 ? (
@@ -1257,7 +1265,9 @@ export const VMDetailView: React.FC = () => {
               Історичні дані для цієї сутності наразі недоступні
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity duration-300 ${
+              isRRDLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'
+            }`}>
               {/* CPU Chart */}
               {(() => {
                 const valid = rrdData.filter((d) => d.cpu !== undefined);
