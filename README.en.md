@@ -5,104 +5,91 @@
   <b>🇬🇧 English</b>
 </p>
 
-**V-Master** is a native desktop client for macOS (Apple Silicon) designed for centralized monitoring of **Proxmox Virtual Environment** clusters and daily administration of **Ubuntu / Debian Linux** virtual machines.
+**V-Master** is a fast and convenient desktop client for **macOS** and **Windows**, designed for monitoring **Proxmox Virtual Environment** clusters and daily administration of **Linux (Ubuntu / Debian)** virtual machines and containers.
 
-The application combines hypervisor API capabilities with an integrated sysadmin toolkit: an embedded SSH terminal, a dual-pane SFTP manager, system process analytics, and safe batch package updating routines.
+The application combines all essential sysadmin tools in a single workspace: hypervisor web APIs, a multi-tab SSH terminal, a dual-pane SFTP manager, in-guest Docker container monitoring, and safe automated OS package updates.
 
 ---
 
 ## Key Features
 
-- **Global Spotlight Command Palette**:
-  - Instant activation via **`⌘ + K`** or **`⌘ + P`** from any application view.
-  - Swift navigation between tabs (Dashboard, Nodes, SFTP, Settings).
-  - Search and jump directly to virtual machines by name or VMID.
-  - Immediate execution of power actions (Start, Stop, Reboot), opening terminal sessions, and launching in-depth diagnostics without redundant clicks.
+### 🖥️ Proxmox VE Virtual Machine & Container Management
+- **Full Support for KVM/QEMU & LXC**: manage virtual machines (`VM`) and lightweight Linux containers (`CT`) with distinct color-coded badges for instant recognition.
+- **Power Operations**: start, gracefully shutdown, force stop, or reboot single or multiple VMs simultaneously via the batch Floating Action Bar.
+- **Snapshots**: create instant snapshots (with optional RAM retention), rollback, or delete them in seconds.
+- **Backup Management (VZDump)**: inspect existing backups across cluster storages and create new backups on-demand (modes: *Snapshot*, *Suspend*, *Stop*; compression: *ZSTD*, *GZIP*, or none).
+- **Historical Metrics (RRD)**: visual performance charts for CPU utilization (%) and RAM consumption over the last **1 hour**, **24 hours**, or **7 days**.
+- **Node & Cluster Insights**: node health metrics, memory usage, CPU load, and systemd service management (`pve-cluster`, `pvedaemon`, `pveproxy`).
 
-- **Multi-Tab SSH Terminal**:
-  - Simultaneous management of multiple interactive terminal sessions.
-  - Native keyboard shortcuts: **`⌘ + T`** (new tab), **`⌘ + W`** (close tab), **`⌘ + 1..9`** (fast tab switching).
-  - Live connection status indicators and unread activity badges.
-  - Interactive live preview of terminal color palettes (Dark, Light, Dracula, Monokai) and font sizing directly in Settings.
-  - Profile-based auto-connect, macOS Keychain `ssh-agent` integration, and private SSH key authentication (`~/.ssh/id_rsa`, `id_ed25519`).
-  - Secure sudo password storage in macOS Keychain with an automatic prompt right after a successful connection test.
-  - Customizable snippet library for 1-click command execution.
+### ⚡ Global Spotlight Command Palette
+- Triggered instantly via **`⌘ + K`** / **`⌘ + P`** on macOS and **`Ctrl + K`** / **`Ctrl + P`** on Windows.
+- Real-time search across all virtual machines and containers by name or VMID.
+- Instant navigation between app sections and fast power actions without clicking through nested menus.
 
-- **Proxmox LXC Container Management**:
-  - First-class support for both KVM/QEMU VMs and lightweight Linux Containers (LXC).
-  - Distinct visual badges (**`VM`** in blue and **`CT`** in purple).
-  - Snapshotting, power actions, and console access for containers.
+### 💻 Embedded Multi-Tab SSH Terminal
+- **Multi-tasking**: open multiple concurrent sessions in clean tabs (**`⌘ + T`** / **`Ctrl + T`** — new tab, **`⌘ + W`** / **`Ctrl + W`** — close).
+- **Authentication**: connect via password or private keys (`id_ed25519`, `id_rsa`), with automatic integration with system `ssh-agent` (macOS Keychain and Windows OpenSSH Agent).
+- **SSH Bastion / Jump Host**: securely tunnel connections to isolated servers via an intermediate bastion node.
+- **Terminal Auto-Reconnect**: automatic 5-second countdown and reconnection attempt if the network drops unexpectedly.
+- **Encrypted Sudo Password**: securely stores your sudo password in your operating system keychain to eliminate repetitive password prompts.
+- **Command Snippets**: 1-click execution of handy diagnostic commands (disk usage, memory, listening ports, Docker).
+- **Themes & Sizing**: custom palettes (Dark, Light, Dracula, Monokai) and customizable font sizes.
 
-- **Historical Performance Graphs (Proxmox RRD Metrics)**:
-  - Interactive SVG performance charts for CPU utilization (%) and memory consumption (RAM).
-  - Timeframe presets: **1 hour**, **24 hours**, and **7 days**.
+### 📁 Dual-Pane Graphic SFTP Manager
+- Remote file system exploration with upload and download capabilities.
+- Direct desktop file upload via **Drag-and-Drop** with drop-zone highlight.
+- Built-in fullscreen text and configuration editor with code highlighting and instant saving via **`⌘ + S`** (**`Ctrl + S`**).
+- **Live Tail Mode**: watch remote log files update in real-time.
 
-- **Proxmox VZDump Backup Management**:
-  - View and manage existing backups for every VM and container across cluster storages.
-  - On-demand backup creation with custom modes (*Snapshot*, *Suspend*, *Stop*) and compression (*ZSTD*, *GZIP*, *None*).
+### 🐳 Docker & Deep System Diagnostics
+- **Docker Monitoring**: live view of running and stopped containers with image names, port bindings, and statuses.
+- **Container Control**: restart individual containers and stream live container logs directly in-app.
+- **Live Journalctl**: real-time continuous streaming of systemd `journalctl` logs with severity filters (*All*, *Errors*, *Warnings*) and substring search.
+- **Process Analytics**: inspect top CPU and memory-consuming processes, terminate rogue tasks (`kill`), and flush OS disk cache (`drop_caches`).
 
-- **In-Guest Docker Container Monitoring**:
-  - Inspect running and stopped Docker containers with image names, port bindings, and health statuses.
-  - Restart individual containers with root/sudo support.
-  - Live streaming of container logs in-app without terminal overhead.
-
-- **Enhanced SFTP Manager**:
-  - Drag-and-Drop file uploads with a visual drop-zone overlay.
-  - **Live Tail** polling mode in the built-in file editor for continuous log watching.
-
-- **SSH Bastion / Jump Host & Auto-Reconnect**:
-  - Secure SSH tunneling to private-network servers via intermediate bastion hosts.
-  - Automatic terminal reconnection countdown (5 seconds) with manual cancel support upon connection drop.
-
-- **Cross-Platform Support (macOS & Windows)**:
-  - Native window title bar handling (`hiddenInset` for macOS with traffic lights, native frameless header for Windows).
-  - Windows OpenSSH Agent pipe support (`\\.\pipe\openssh-ssh-agent`).
-  - Windows NSIS installer and portable ZIP targets for x64.
+### 🛡️ Safe OS Package Updates (Safety Snapshots)
+- Automatically takes a safety snapshot before applying OS packages.
+- One-click rollback button to immediately revert VM state if updates cause regressions.
+- Transparent classification of updates into security advisories vs. regular package upgrades.
 
 ---
 
-## Installation (macOS)
+## Installation
 
-### System Requirements
-- macOS 12.0 (Monterey) or later.
-- Architecture: **Apple Silicon (M1 / M2 / M3 / M4)**.
-
-### Getting Started
-
-1. Go to the latest release page:  
-   👉 **[Download V-Master](https://github.com/MagnaMentes/v-master/releases/latest)**
-
+### macOS
+1. Open the latest release page: 👉 **[Download V-Master](https://github.com/MagnaMentes/v-master/releases/latest)**.
 2. Download `V-Master-X.X.X-arm64-mac.zip`.
+3. Extract the archive and drag `V-Master.app` into your **Applications** folder (`/Applications`).
 
-3. Unzip the file and move `V-Master.app` into your **Applications** folder (`/Applications`).
-
-> **First Launch on macOS:**  
-> Since V-Master is an open-source non-commercial project distributed without an Apple Developer ID signature, macOS Gatekeeper may prompt that the developer cannot be verified.  
+> **Note for First Launch on macOS:**  
+> V-Master is an open-source non-commercial project distributed without a paid Apple Developer ID signature. On first launch, macOS Gatekeeper may show a warning about an unverified developer.  
 > 
-> To launch without issues:
-> - Right-click (or `Control + click`) on `V-Master.app` in `/Applications` and select **Open**, then confirm.  
-> - Alternatively, clear the quarantine attribute via Terminal:
+> **How to open:**
+> - Right-click (or `Control + click`) `V-Master.app` in `/Applications`, select **Open**, and confirm.  
+> - Or remove the quarantine attribute with a single Terminal command:
 >   ```bash
->   xattr -cr /Applications/V-Master.app
+>   xattr -c /Applications/V-Master.app
 >   ```
 
+### Windows
+1. Download the Windows installer package from the **[Latest Release](https://github.com/MagnaMentes/v-master/releases/latest)**.
+2. Run the installer and follow the setup wizard (it will automatically create desktop and start menu shortcuts).
+
 ---
 
-## Free Status & Project Support
+## Supporting the Project
 
-**V-Master is 100% free and open-source software**. There are no paid tiers, subscriptions, telemetry, or artificial limits on the number of nodes or VMs you can manage.
+**V-Master is 100% free and open-source software**. There are no paid tiers, subscriptions, tracking, or artificial limitations on the number of servers you can connect.
 
-The project is actively developed and maintained to streamline routine server management and homelab workflows.
-
-If V-Master saves you time and you would like to support its ongoing development:
+If V-Master saves you time and proves helpful in your daily workflow:
 
 ☕ **[Support V-Master (Monobank Jar)](https://send.monobank.ua/jar/6s5yE12CxH)**
 
-You can also donate directly within the application by clicking the heart button in the lower-left corner of the sidebar. Every contribution is deeply appreciated!
+You can also donate directly inside the app by clicking the support button at the bottom of the sidebar. Thank you for your support!
 
 ---
 
-## Building from Source (Developers)
+## Building from Source
 
 ```bash
 # Clone the repository
@@ -112,15 +99,18 @@ cd v-master
 # Install dependencies
 npm install
 
-# Run in development mode (Vite + Electron live reload)
+# Start development mode
 npm run dev
 
-# Build distributable bundle for macOS (Apple Silicon)
+# Build installer bundle for macOS
 npm run package
+
+# Build installer bundle for Windows
+npm run package:win
 ```
 
 ---
 
 ## License
 
-This project is released under the [MIT](LICENSE) License.
+This project is released under the open-source [MIT](LICENSE) License.
