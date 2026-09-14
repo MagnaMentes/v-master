@@ -529,4 +529,115 @@ export class ProxmoxService {
       return { success: false, error: msg };
     }
   }
+
+  public async getNodeStorage(
+    config: ProxmoxServerConfig,
+    node: string
+  ): Promise<any[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get(`/nodes/${node}/storage`, { headers });
+    return (res.data?.data || []).map((s: any) => ({
+      storage: s.storage,
+      type: s.type || 'unknown',
+      content: s.content || '',
+      active: Boolean(s.active),
+      enabled: Boolean(s.enabled ?? true),
+      shared: Boolean(s.shared),
+      total: s.total || 0,
+      used: s.used || 0,
+      avail: s.avail || 0,
+      usedFraction: s.used_fraction || (s.total ? s.used / s.total : 0),
+    }));
+  }
+
+  public async getNodeDisks(
+    config: ProxmoxServerConfig,
+    node: string
+  ): Promise<any[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get(`/nodes/${node}/disks/list`, { headers });
+    return (res.data?.data || []).map((d: any) => ({
+      devpath: d.devpath || d.node || '',
+      model: d.model || 'Unknown Disk',
+      serial: d.serial || '',
+      size: d.size || 0,
+      type: d.type || 'unknown',
+      health: d.health || 'UNKNOWN',
+      wearout: d.wearout,
+      temperature: d.temperature,
+      rpm: d.rpm,
+    }));
+  }
+
+  public async getNodeTasks(
+    config: ProxmoxServerConfig,
+    node: string,
+    limit: number = 50
+  ): Promise<any[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get(`/nodes/${node}/tasks?limit=${limit}`, { headers });
+    return (res.data?.data || []).map((t: any) => ({
+      upid: t.upid,
+      node: t.node,
+      pid: t.pid,
+      pstart: t.pstart,
+      starttime: t.starttime,
+      endtime: t.endtime,
+      type: t.type,
+      id: t.id,
+      user: t.user,
+      status: t.status,
+    }));
+  }
+
+  public async getNodeTaskLog(
+    config: ProxmoxServerConfig,
+    node: string,
+    upid: string
+  ): Promise<string[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const encodedUpid = encodeURIComponent(upid);
+    const res = await client.get(`/nodes/${node}/tasks/${encodedUpid}/log?limit=500`, { headers });
+    return (res.data?.data || []).map((l: any) => l.t || '');
+  }
+
+  public async getNodeNetworks(
+    config: ProxmoxServerConfig,
+    node: string
+  ): Promise<any[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get(`/nodes/${node}/network`, { headers });
+    return (res.data?.data || []).map((n: any) => ({
+      iface: n.iface,
+      type: n.type || 'unknown',
+      active: Boolean(n.active),
+      autostart: Boolean(n.autostart),
+      address: n.address,
+      netmask: n.netmask,
+      cidr: n.cidr,
+      gateway: n.gateway,
+      bridge_ports: n.bridge_ports,
+      slaves: n.slaves,
+      comments: n.comments,
+    }));
+  }
+
+  public async getNodeSyslog(
+    config: ProxmoxServerConfig,
+    node: string,
+    limit: number = 200
+  ): Promise<any[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get(`/nodes/${node}/syslog?limit=${limit}`, { headers });
+    return (res.data?.data || []).map((l: any) => ({
+      n: l.n || 0,
+      t: l.t || '',
+    }));
+  }
 }

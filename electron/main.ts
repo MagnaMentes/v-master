@@ -231,6 +231,24 @@ function registerIpcHandlers() {
   ipcMain.handle('proxmox:refreshNodeUpdates', (_e, config: ProxmoxServerConfig, node: string) =>
     proxmox.refreshNodeUpdates(config, node)
   );
+  ipcMain.handle('proxmox:getNodeStorage', (_e, config: ProxmoxServerConfig, node: string) =>
+    proxmox.getNodeStorage(config, node)
+  );
+  ipcMain.handle('proxmox:getNodeDisks', (_e, config: ProxmoxServerConfig, node: string) =>
+    proxmox.getNodeDisks(config, node)
+  );
+  ipcMain.handle('proxmox:getNodeTasks', (_e, config: ProxmoxServerConfig, node: string, limit?: number) =>
+    proxmox.getNodeTasks(config, node, limit)
+  );
+  ipcMain.handle('proxmox:getNodeTaskLog', (_e, config: ProxmoxServerConfig, node: string, upid: string) =>
+    proxmox.getNodeTaskLog(config, node, upid)
+  );
+  ipcMain.handle('proxmox:getNodeNetworks', (_e, config: ProxmoxServerConfig, node: string) =>
+    proxmox.getNodeNetworks(config, node)
+  );
+  ipcMain.handle('proxmox:getNodeSyslog', (_e, config: ProxmoxServerConfig, node: string, limit?: number) =>
+    proxmox.getNodeSyslog(config, node, limit)
+  );
 
   // SSH Terminal handlers
   ipcMain.handle('ssh:connect', async (_e, sessionId: string, profile: SSHProfile, rows: number, cols: number) => {

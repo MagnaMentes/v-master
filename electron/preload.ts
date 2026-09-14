@@ -114,6 +114,18 @@ const api = {
       ipcRenderer.invoke('proxmox:getNodeUpdates', config, node),
     refreshNodeUpdates: (config: ProxmoxServerConfig, node: string): Promise<{ success: boolean; taskId?: string; error?: string }> =>
       ipcRenderer.invoke('proxmox:refreshNodeUpdates', config, node),
+    getNodeStorage: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeStorage', config, node),
+    getNodeDisks: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeDisks', config, node),
+    getNodeTasks: (config: ProxmoxServerConfig, node: string, limit?: number): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeTasks', config, node, limit),
+    getNodeTaskLog: (config: ProxmoxServerConfig, node: string, upid: string): Promise<string[]> =>
+      ipcRenderer.invoke('proxmox:getNodeTaskLog', config, node, upid),
+    getNodeNetworks: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeNetworks', config, node),
+    getNodeSyslog: (config: ProxmoxServerConfig, node: string, limit?: number): Promise<any[]> =>
+      ipcRenderer.invoke('proxmox:getNodeSyslog', config, node, limit),
   },
 
   // SSH Terminal

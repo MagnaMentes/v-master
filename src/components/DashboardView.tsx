@@ -26,6 +26,7 @@ import { useApp } from '../contexts/AppContext';
 import { ServerModal } from './ServerModal';
 import { NodeServicesModal } from './NodeServicesModal';
 import { NodeUpdatesModal } from './NodeUpdatesModal';
+import { NodeAdminModal } from './NodeAdminModal';
 import type { ProxmoxVM } from '../types';
 
 export const DashboardView: React.FC = () => {
@@ -49,6 +50,7 @@ export const DashboardView: React.FC = () => {
   const [isEditServerModalOpen, setIsEditServerModalOpen] = useState(false);
   const [selectedNodeServices, setSelectedNodeServices] = useState<string | null>(null);
   const [selectedNodeUpdates, setSelectedNodeUpdates] = useState<string | null>(null);
+  const [selectedNodeAdmin, setSelectedNodeAdmin] = useState<string | null>(null);
   const [confirmNodeAction, setConfirmNodeAction] = useState<{ node: string; action: 'reboot' | 'shutdown' } | null>(null);
   const [confirmVMAction, setConfirmVMAction] = useState<{ vm: ProxmoxVM; action: 'stop' | 'reboot' } | null>(null);
   const [isNodeActionLoading, setIsNodeActionLoading] = useState(false);
@@ -646,6 +648,14 @@ export const DashboardView: React.FC = () => {
                         >
                           <button
                             type="button"
+                            onClick={() => setSelectedNodeAdmin(n.node)}
+                            title="Адміністрування вузла (Сховища, Диски, Мережа, Завдання, Syslog)"
+                            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
+                          >
+                            <HardDrive className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openTerminalForNode(n.node)}
                             title="Відкрити Shell вузла Proxmox"
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
@@ -788,6 +798,16 @@ export const DashboardView: React.FC = () => {
           onClose={() => setSelectedNodeUpdates(null)}
           nodeName={selectedNodeUpdates}
           onOpenTerminal={() => openTerminalForNode(selectedNodeUpdates)}
+        />
+      )}
+
+      {/* Node Admin Modal (Storage, Disks, Networks, Tasks, Syslog) */}
+      {selectedNodeAdmin && (
+        <NodeAdminModal
+          isOpen={Boolean(selectedNodeAdmin)}
+          onClose={() => setSelectedNodeAdmin(null)}
+          nodeName={selectedNodeAdmin}
+          onOpenTerminal={() => openTerminalForNode(selectedNodeAdmin)}
         />
       )}
 

@@ -45,6 +45,63 @@ export interface ProxmoxAPTUpdate {
   arch?: string;
 }
 
+export interface ProxmoxNodeStorage {
+  storage: string;
+  type: string;
+  content: string;
+  active: boolean;
+  enabled: boolean;
+  shared: boolean;
+  total: number;
+  used: number;
+  avail: number;
+  usedFraction: number;
+}
+
+export interface ProxmoxNodeDisk {
+  devpath: string;
+  model: string;
+  serial?: string;
+  size: number;
+  type: string;
+  health: string;
+  wearout?: number;
+  temperature?: number;
+  rpm?: number;
+}
+
+export interface ProxmoxNodeTask {
+  upid: string;
+  node: string;
+  pid: number;
+  pstart: number;
+  starttime: number;
+  endtime?: number;
+  type: string;
+  id?: string;
+  user: string;
+  status?: string;
+}
+
+export interface ProxmoxNodeNetwork {
+  iface: string;
+  type: string;
+  active: boolean;
+  autostart?: boolean;
+  address?: string;
+  netmask?: string;
+  cidr?: string;
+  gateway?: string;
+  bridge_ports?: string;
+  slaves?: string;
+  comments?: string;
+}
+
+export interface ProxmoxSyslogItem {
+  n: number;
+  t: string;
+}
+
 export interface ProxmoxVM {
   vmid: number;
   name: string;
@@ -339,6 +396,12 @@ export interface WindowApi {
     executeNodeAction: (config: ProxmoxServerConfig, node: string, action: 'reboot' | 'shutdown') => Promise<{ success: boolean; error?: string }>;
     getNodeUpdates: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxAPTUpdate[]>;
     refreshNodeUpdates: (config: ProxmoxServerConfig, node: string) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    getNodeStorage: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxNodeStorage[]>;
+    getNodeDisks: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxNodeDisk[]>;
+    getNodeTasks: (config: ProxmoxServerConfig, node: string, limit?: number) => Promise<ProxmoxNodeTask[]>;
+    getNodeTaskLog: (config: ProxmoxServerConfig, node: string, upid: string) => Promise<string[]>;
+    getNodeNetworks: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxNodeNetwork[]>;
+    getNodeSyslog: (config: ProxmoxServerConfig, node: string, limit?: number) => Promise<ProxmoxSyslogItem[]>;
   };
   ssh: {
     connect: (sessionId: string, profile: SSHProfile, rows: number, cols: number) => Promise<{ success: boolean; error?: string }>;

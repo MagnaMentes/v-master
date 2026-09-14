@@ -19,7 +19,7 @@ The application combines all essential sysadmin tools in a single workspace: hyp
 - **Snapshots**: create instant snapshots (with optional RAM retention), rollback, or delete them in seconds.
 - **Backup Management (VZDump)**: inspect existing backups across cluster storages and create new backups on-demand (modes: *Snapshot*, *Suspend*, *Stop*; compression: *ZSTD*, *GZIP*, or none).
 - **Interactive Historical Metrics (RRD)**: visual performance charts for CPU utilization (%) and RAM consumption over the last **1 hour**, **24 hours**, or **7 days** with average, peak, and live readings, coordinate reference scale, hover inspection cursor, and seamless smooth interval switching without resetting VM page state.
-- **Node & Cluster Insights**: node health metrics, memory usage, CPU load, and systemd service management (`pve-cluster`, `pvedaemon`, `pveproxy`).
+- **Comprehensive Node Administration (PVE Hosts)**: complete dedicated management dashboard for each cluster node featuring storage pool monitoring (ZFS, LVM-Thin, NFS, CIFS), physical disk diagnostics with **SMART (PASSED/FAILED)** health, temperatures, and wearout metrics, network bridges & interfaces (`vmbr0`, bond, VLAN), real-time host **Syslog** with error filtering, live cluster task history with detailed terminal logs, alongside systemd service management (`pve-cluster`, `pvedaemon`, `pveproxy`) and node APT package updates.
 
 ### ⚡ Global Spotlight Command Palette
 - Triggered instantly via **`⌘ + K`** / **`⌘ + P`** on macOS and **`Ctrl + K`** / **`Ctrl + P`** on Windows.
