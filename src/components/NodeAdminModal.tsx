@@ -484,7 +484,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
-      <div className="bg-white dark:bg-[#1E1E20] w-full max-w-5xl h-[88vh] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden modal-animate">
+      <div className="bg-white dark:bg-[#1E1E20] w-full max-w-6xl xl:max-w-7xl h-[88vh] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden modal-animate">
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/70 dark:bg-[#18181A]/80">
           <div className="flex items-center gap-3">
@@ -527,7 +527,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1E1E20] overflow-x-auto text-xs">
+        <div className="flex items-center gap-1 px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1E1E20] overflow-x-auto no-scrollbar text-xs">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex items-center gap-2 py-3 px-3 border-b-2 font-medium transition-colors cursor-pointer whitespace-nowrap ${

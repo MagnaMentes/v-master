@@ -176,3 +176,13 @@ button, a, input, select, textarea {
 button:active:not(:disabled) {
   transform: scale(0.985);
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
