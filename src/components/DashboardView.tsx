@@ -25,7 +25,6 @@ import {
 import { useApp } from '../contexts/AppContext';
 import { ServerModal } from './ServerModal';
 import { NodeServicesModal } from './NodeServicesModal';
-import { NodeUpdatesModal } from './NodeUpdatesModal';
 import { NodeAdminModal } from './NodeAdminModal';
 import type { ProxmoxVM } from '../types';
 
@@ -49,7 +48,6 @@ export const DashboardView: React.FC = () => {
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [isEditServerModalOpen, setIsEditServerModalOpen] = useState(false);
   const [selectedNodeServices, setSelectedNodeServices] = useState<string | null>(null);
-  const [selectedNodeUpdates, setSelectedNodeUpdates] = useState<string | null>(null);
   const [selectedNodeAdmin, setSelectedNodeAdmin] = useState<string | null>(null);
   const [confirmNodeAction, setConfirmNodeAction] = useState<{ node: string; action: 'reboot' | 'shutdown' } | null>(null);
   const [confirmVMAction, setConfirmVMAction] = useState<{ vm: ProxmoxVM; action: 'stop' | 'reboot' } | null>(null);
@@ -672,14 +670,6 @@ export const DashboardView: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setSelectedNodeUpdates(n.node)}
-                            title="Оновлення Proxmox VE"
-                            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-amber-600 dark:text-amber-400 transition-colors cursor-pointer"
-                          >
-                            <ArrowUpCircle className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => setConfirmNodeAction({ node: n.node, action: 'reboot' })}
                             title="Перезавантажити вузол"
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
@@ -791,17 +781,7 @@ export const DashboardView: React.FC = () => {
         />
       )}
 
-      {/* Node Updates Modal */}
-      {selectedNodeUpdates && (
-        <NodeUpdatesModal
-          isOpen={Boolean(selectedNodeUpdates)}
-          onClose={() => setSelectedNodeUpdates(null)}
-          nodeName={selectedNodeUpdates}
-          onOpenTerminal={() => openTerminalForNode(selectedNodeUpdates)}
-        />
-      )}
-
-      {/* Node Admin Modal (Storage, Disks, Networks, Tasks, Syslog) */}
+      {/* Node Admin Modal (Storage, Disks, Networks, Updates, Tasks, Syslog) */}
       {selectedNodeAdmin && (
         <NodeAdminModal
           isOpen={Boolean(selectedNodeAdmin)}
@@ -832,8 +812,8 @@ export const DashboardView: React.FC = () => {
 
       {/* Confirm Node Reboot Modal */}
       {confirmNodeAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 modal-animate">
-          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
                 <AlertTriangle className="w-5 h-5" />
@@ -887,8 +867,8 @@ export const DashboardView: React.FC = () => {
 
       {/* Confirm VM Power Action Modal */}
       {confirmVMAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 modal-animate">
-          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate">
             <div className="flex items-center gap-2.5">
               <div
                 className={`p-2 rounded-xl ${

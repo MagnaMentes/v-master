@@ -127,11 +127,10 @@
 @keyframes softFadeIn {
   from {
     opacity: 0;
-    transform: translateY(3px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -142,7 +141,7 @@
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: none;
   }
 }
 
@@ -156,7 +155,7 @@
 }
 
 .view-animate {
-  animation: softFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: softFadeIn 0.15s ease-out forwards;
 }
 
 .modal-animate {
