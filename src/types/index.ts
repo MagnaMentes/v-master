@@ -462,6 +462,29 @@ export interface WindowApi {
         startAfterCreate?: boolean;
       }
     ) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    createCT: (
+      config: ProxmoxServerConfig,
+      node: string,
+      params: {
+        vmid: number;
+        hostname: string;
+        ostemplate?: string;
+        cores?: number;
+        memory?: number;
+        swap?: number;
+        diskSize?: number;
+        storage?: string;
+        bridge?: string;
+        password?: string;
+        enableDocker?: boolean;
+        unprivileged?: boolean;
+        startAfterCreate?: boolean;
+      }
+    ) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    getNodeTemplates: (
+      config: ProxmoxServerConfig,
+      node: string
+    ) => Promise<Array<{ volid: string; format: string; size?: number }>>;
     getNodeSyslog: (config: ProxmoxServerConfig, node: string, limit?: number) => Promise<ProxmoxSyslogItem[]>;
   };
   ssh: {

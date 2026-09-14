@@ -830,6 +830,101 @@ export class ProxmoxService {
     return { success: true, taskId: res.data?.data };
   }
 
+  public async getNodeTemplates(
+    config: ProxmoxServerConfig,
+    node: string
+  ): Promise<Array<{ volid: string; format: string; size?: number }>> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    try {
+      const storagesRes = await client.get(`/nodes/${node}/storage`, { headers });
+      const storages = storagesRes.data?.data || [];
+      const tmplStorages = storages.filter((s: any) => s.content && s.content.includes('vztmpl'));
+
+      const allTemplates: Array<{ volid: string; format: string; size?: number }> = [];
+      await Promise.all(
+        tmplStorages.map(async (st: any) => {
+          try {
+            const res = await client.get(`/nodes/${node}/storage/${st.storage}/content?content=vztmpl`, { headers });
+            const list = res.data?.data || [];
+            list.forEach((item: any) => {
+              if (item.volid) {
+                allTemplates.push({
+                  volid: item.volid,
+                  format: item.format || '',
+                  size: item.size,
+                });
+              }
+            });
+          } catch {
+            // Ignore offline or restricted storages
+          }
+        })
+      );
+      return allTemplates;
+    } catch {
+      return [];
+    }
+  }
+
+  public async createCT(
+    config: ProxmoxServerConfig,
+    node: string,
+    params: {
+      vmid: number;
+      hostname: string;
+      ostemplate?: string;
+      cores?: number;
+      memory?: number; // MB
+      swap?: number; // MB
+      diskSize?: number; // GB
+      storage?: string;
+      bridge?: string;
+      password?: string;
+      enableDocker?: boolean; // nesting=1,keyctl=1
+      unprivileged?: boolean;
+      startAfterCreate?: boolean;
+    }
+  ): Promise<{ success: boolean; taskId?: string; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const payload: any = {
+      vmid: params.vmid,
+      hostname: params.hostname,
+      cores: params.cores || 2,
+      memory: params.memory || 2048,
+      swap: params.swap !== undefined ? params.swap : 512,
+      net0: `name=eth0,bridge=${params.bridge || 'vmbr0'},ip=dhcp,firewall=1`,
+      unprivileged: params.unprivileged !== false ? 1 : 0,
+    };
+
+    if (params.storage) {
+      const diskGb = params.diskSize || 8;
+      payload.rootfs = `${params.storage}:${diskGb}`;
+    }
+
+    if (params.ostemplate) {
+      payload.ostemplate = params.ostemplate;
+    }
+
+    if (params.password) {
+      payload.password = params.password;
+    }
+
+    if (params.enableDocker) {
+      payload.features = 'nesting=1,keyctl=1';
+    } else {
+      payload.features = 'nesting=1';
+    }
+
+    if (params.startAfterCreate) {
+      payload.start = 1;
+    }
+
+    const res = await client.post(`/nodes/${node}/lxc`, payload, { headers });
+    return { success: true, taskId: res.data?.data };
+  }
+
   public async getNodeSyslog(
     config: ProxmoxServerConfig,
     node: string,

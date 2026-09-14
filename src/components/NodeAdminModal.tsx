@@ -28,6 +28,7 @@ import {
   Check,
   AlertTriangle,
   FolderPlus,
+  Box,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import type {
@@ -55,7 +56,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
   nodeName,
   onOpenTerminal,
 }) => {
-  const { activeServer, sshProfiles } = useApp();
+  const { activeServer, sshProfiles, refreshClusterData } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   // Node Status / Hardware Overview
@@ -189,6 +190,41 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     bridge: 'vmbr0',
     startAfterCreate: true,
   });
+
+  // Create CT / Docker Container Modal
+  const [createCTModal, setCreateCTModal] = useState<{
+    isOpen: boolean;
+    vmid: number;
+    hostname: string;
+    ostemplate: string;
+    cores: number;
+    memory: number; // MB
+    swap: number; // MB
+    diskSize: number; // GB
+    storage: string;
+    bridge: string;
+    password: string;
+    enableDocker: boolean; // nesting=1,keyctl=1
+    unprivileged: boolean;
+    startAfterCreate: boolean;
+  }>({
+    isOpen: false,
+    vmid: 101,
+    hostname: '',
+    ostemplate: '',
+    cores: 2,
+    memory: 2048,
+    swap: 512,
+    diskSize: 8,
+    storage: '',
+    bridge: 'vmbr0',
+    password: '',
+    enableDocker: true,
+    unprivileged: true,
+    startAfterCreate: true,
+  });
+  const [availableTemplates, setAvailableTemplates] = useState<Array<{ volid: string; format: string; size?: number }>>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Action status notification
   const [crudActionStatus, setCrudActionStatus] = useState<{
@@ -523,8 +559,80 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         text: `Віртуальну машину #${createVMModal.vmid} успішно створено на ${nodeName}! (Task: ${res.taskId || 'OK'})`,
       });
       setCreateVMModal((prev) => ({ ...prev, isOpen: false }));
+      await refreshClusterData();
     } catch (err: any) {
       setCrudActionStatus({ type: 'error', text: err.message || 'Помилка створення віртуальної машини' });
+    }
+  };
+
+  // Create CT Handlers
+  const handleOpenCreateCT = async () => {
+    if (!activeServer) return;
+    setLoadingTemplates(true);
+    try {
+      const [nextId, tmpls] = await Promise.all([
+        window.api.proxmox.getNextVMID(activeServer).catch(() => 101),
+        window.api.proxmox.getNodeTemplates(activeServer, nodeName).catch(() => []),
+      ]);
+      setAvailableTemplates(tmpls);
+
+      const defaultStorage =
+        storages.find((s) => s.content?.includes('rootdir') || s.type === 'lvmthin' || s.type === 'dir')?.storage ||
+        storages[0]?.storage ||
+        'local-lvm';
+      const defaultBridge = networks.find((n) => n.iface.startsWith('vmbr'))?.iface || 'vmbr0';
+      const defaultTmpl = tmpls[0]?.volid || '';
+
+      setCreateCTModal({
+        isOpen: true,
+        vmid: nextId || 101,
+        hostname: `ct-${nextId || 101}`,
+        ostemplate: defaultTmpl,
+        cores: 2,
+        memory: 2048,
+        swap: 512,
+        diskSize: 8,
+        storage: defaultStorage,
+        bridge: defaultBridge,
+        password: '',
+        enableDocker: true,
+        unprivileged: true,
+        startAfterCreate: true,
+      });
+    } catch {
+      setCreateCTModal((prev) => ({ ...prev, isOpen: true }));
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleCreateCT = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeServer || !nodeName) return;
+    try {
+      const res = await window.api.proxmox.createCT(activeServer, nodeName, {
+        vmid: Number(createCTModal.vmid),
+        hostname: createCTModal.hostname.trim() || `ct-${createCTModal.vmid}`,
+        ostemplate: createCTModal.ostemplate.trim() || undefined,
+        cores: Number(createCTModal.cores) || 2,
+        memory: Number(createCTModal.memory) || 2048,
+        swap: Number(createCTModal.swap) !== undefined ? Number(createCTModal.swap) : 512,
+        diskSize: Number(createCTModal.diskSize) || 8,
+        storage: createCTModal.storage || undefined,
+        bridge: createCTModal.bridge || 'vmbr0',
+        password: createCTModal.password || undefined,
+        enableDocker: createCTModal.enableDocker,
+        unprivileged: createCTModal.unprivileged,
+        startAfterCreate: createCTModal.startAfterCreate,
+      });
+      setCrudActionStatus({
+        type: 'success',
+        text: `Контейнер #${createCTModal.vmid} успішно створено на ${nodeName}! (Task: ${res.taskId || 'OK'})`,
+      });
+      setCreateCTModal((prev) => ({ ...prev, isOpen: false }));
+      await refreshClusterData();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка створення контейнера' });
     }
   };
 
@@ -843,6 +951,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Створити ВМ</span>
+            </button>
+            <button
+              onClick={handleOpenCreateCT}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
+              title="Створити новий контейнер (LXC / Docker) на цьому вузлі"
+            >
+              <Box className="w-3.5 h-3.5" />
+              <span>Створити CT</span>
             </button>
             {onOpenTerminal && (
               <button
@@ -2029,6 +2145,240 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
                 >
                   Створити ВМ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Create Container (LXC / Docker) */}
+      {createCTModal.isOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-6 flex flex-col gap-4 modal-animate my-8">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+              <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
+                <Box className="w-4 h-4 text-indigo-500" />
+                <span>Створити контейнер (LXC / Docker) на {nodeName}</span>
+              </div>
+              <button
+                onClick={() => setCreateCTModal((prev) => ({ ...prev, isOpen: false }))}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCT} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">CT ID *</label>
+                  <input
+                    type="number"
+                    required
+                    value={createCTModal.vmid}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, vmid: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Hostname / Назва *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createCTModal.hostname}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, hostname: e.target.value }))}
+                    placeholder="docker-app"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              {/* Template selection */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-medium text-zinc-700 dark:text-zinc-300">Шаблон ОС (vztmpl)</label>
+                  {loadingTemplates && <span className="text-[10px] text-zinc-400">Пошук шаблонів...</span>}
+                </div>
+                {availableTemplates.length > 0 ? (
+                  <select
+                    value={createCTModal.ostemplate}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, ostemplate: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono text-[11px]"
+                  >
+                    {availableTemplates.map((t) => (
+                      <option key={t.volid} value={t.volid}>
+                        {t.volid} {t.size ? `(${(t.size / 1024 / 1024).toFixed(0)} MB)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={createCTModal.ostemplate}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, ostemplate: e.target.value }))}
+                    placeholder="local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono text-[11px]"
+                  />
+                )}
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Образ контейнера у сховищі Proxmox (наприклад, Ubuntu, Debian або Alpine).
+                </p>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Пароль root</label>
+                <input
+                  type="password"
+                  value={createCTModal.password}
+                  onChange={(e) => setCreateCTModal((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="Введіть пароль для входу в контейнер"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                />
+              </div>
+
+              {/* Resources: CPU, RAM, Swap */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Ядра CPU</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={128}
+                    value={createCTModal.cores}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, cores: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">RAM (МБ)</label>
+                  <input
+                    type="number"
+                    min={256}
+                    step={256}
+                    value={createCTModal.memory}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, memory: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Swap (МБ)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={256}
+                    value={createCTModal.swap}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, swap: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              {/* Storage & Disk */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Сховище RootFS</label>
+                  <select
+                    value={createCTModal.storage}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, storage: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  >
+                    {storages.map((s) => (
+                      <option key={s.storage} value={s.storage}>
+                        {s.storage} ({s.type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Розмір диска (ГБ)</label>
+                  <input
+                    type="number"
+                    min={2}
+                    value={createCTModal.diskSize}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, diskSize: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              {/* Bridge */}
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Мережевий міст (Bridge)</label>
+                <select
+                  value={createCTModal.bridge}
+                  onChange={(e) => setCreateCTModal((prev) => ({ ...prev, bridge: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                >
+                  {networks.filter((n) => n.type === 'bridge' || n.iface.startsWith('vmbr')).map((n) => (
+                    <option key={n.iface} value={n.iface}>
+                      {n.iface} {n.comments ? `(${n.comments})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Docker / Nesting Feature Card */}
+              <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="enableDockerInCt"
+                    checked={createCTModal.enableDocker}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, enableDocker: e.target.checked }))}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="enableDockerInCt" className="text-zinc-900 dark:text-zinc-100 font-semibold cursor-pointer text-xs">
+                    Підтримка Docker (Nesting & Keyctl)
+                  </label>
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pl-5 leading-relaxed">
+                  Вмикає вкладену ізоляцію (nesting=1, keyctl=1), що дозволяє запускати Docker daemon і контейнери всередині цього CT.
+                </p>
+              </div>
+
+              {/* Other checkboxes */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="unprivilegedCt"
+                    checked={createCTModal.unprivileged}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, unprivileged: e.target.checked }))}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="unprivilegedCt" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                    Безпривілейований контейнер (Unprivileged — рекомендовано)
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="startCtAfterCreate"
+                    checked={createCTModal.startAfterCreate}
+                    onChange={(e) => setCreateCTModal((prev) => ({ ...prev, startAfterCreate: e.target.checked }))}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="startCtAfterCreate" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                    Запустити контейнер одразу після створення
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setCreateCTModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium cursor-pointer"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs cursor-pointer"
+                >
+                  Створити контейнер
                 </button>
               </div>
             </form>

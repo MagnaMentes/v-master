@@ -359,6 +359,16 @@ function registerIpcHandlers() {
     (_e, config: ProxmoxServerConfig, node: string, params: any) =>
       proxmox.createVM(config, node, params)
   );
+  ipcMain.handle(
+    'proxmox:createCT',
+    (_e, config: ProxmoxServerConfig, node: string, params: any) =>
+      proxmox.createCT(config, node, params)
+  );
+  ipcMain.handle(
+    'proxmox:getNodeTemplates',
+    (_e, config: ProxmoxServerConfig, node: string) =>
+      proxmox.getNodeTemplates(config, node)
+  );
   ipcMain.handle('proxmox:getNodeSyslog', (_e, config: ProxmoxServerConfig, node: string, limit?: number) =>
     proxmox.getNodeSyslog(config, node, limit)
   );

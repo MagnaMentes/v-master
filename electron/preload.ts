@@ -146,6 +146,10 @@ const api = {
       ipcRenderer.invoke('proxmox:getNextVMID', config),
     createVM: (config: ProxmoxServerConfig, node: string, params: any): Promise<{ success: boolean; taskId?: string; error?: string }> =>
       ipcRenderer.invoke('proxmox:createVM', config, node, params),
+    createCT: (config: ProxmoxServerConfig, node: string, params: any): Promise<{ success: boolean; taskId?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:createCT', config, node, params),
+    getNodeTemplates: (config: ProxmoxServerConfig, node: string): Promise<Array<{ volid: string; format: string; size?: number }>> =>
+      ipcRenderer.invoke('proxmox:getNodeTemplates', config, node),
     getNodeSyslog: (config: ProxmoxServerConfig, node: string, limit?: number): Promise<any[]> =>
       ipcRenderer.invoke('proxmox:getNodeSyslog', config, node, limit),
   },

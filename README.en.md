@@ -14,7 +14,7 @@ The application combines all essential sysadmin tools in a single workspace: hyp
 ## Key Features
 
 ### 🖥️ Proxmox VE Virtual Machine & Container Management
-- **Full Support for KVM/QEMU & LXC**: manage virtual machines (`VM`) and lightweight Linux containers (`CT`) with distinct color-coded badges for instant recognition.
+- **VM & Container Provisioning (QEMU / LXC / Docker)**: provision both full QEMU virtual machines and lightweight Proxmox Linux containers (LXC / CT) with OS template selection (`vztmpl`), CPU core/RAM/Swap/Disk/Bridge configurations, and native Docker nesting support (`nesting=1, keyctl=1`).
 - **Power Operations**: start, gracefully shutdown, force stop, or reboot single or multiple VMs simultaneously via the batch Floating Action Bar.
 - **Snapshots**: create instant snapshots (with optional RAM retention), rollback, or delete them in seconds.
 - **Backup Management (VZDump)**: inspect existing backups across cluster storages and create new backups on-demand (modes: *Snapshot*, *Suspend*, *Stop*; compression: *ZSTD*, *GZIP*, or none).
