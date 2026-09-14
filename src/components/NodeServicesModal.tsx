@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, RefreshCw, RotateCcw, Search, CheckCircle2, AlertCircle, Layers } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import type { ProxmoxNodeService } from '../types';
@@ -87,7 +88,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
       (s.desc && s.desc.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate"
@@ -243,6 +244,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

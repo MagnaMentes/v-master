@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   RefreshCw,
   X,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { ServerModal } from './ServerModal';
@@ -647,10 +648,10 @@ export const DashboardView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedNodeAdmin(n.node)}
-                            title="Адміністрування вузла (Сховища, Диски, Мережа, Завдання, Syslog)"
+                            title="Адміністрування вузла (Сховища, Диски, Мережа, Оновлення, Завдання, Syslog)"
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                           >
-                            <HardDrive className="w-3.5 h-3.5" />
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"

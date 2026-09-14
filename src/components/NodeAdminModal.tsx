@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   RefreshCw,
@@ -481,7 +482,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 backdrop-animate">
       <div className="bg-white dark:bg-[#1E1E20] w-full max-w-5xl h-[88vh] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden modal-animate">
         {/* Header */}
@@ -1370,6 +1371,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
