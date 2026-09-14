@@ -18,7 +18,7 @@ The application combines all essential sysadmin tools in a single workspace: hyp
 - **Power Operations**: start, gracefully shutdown, force stop, or reboot single or multiple VMs simultaneously via the batch Floating Action Bar.
 - **Snapshots**: create instant snapshots (with optional RAM retention), rollback, or delete them in seconds.
 - **Backup Management (VZDump)**: inspect existing backups across cluster storages and create new backups on-demand (modes: *Snapshot*, *Suspend*, *Stop*; compression: *ZSTD*, *GZIP*, or none).
-- **Historical Metrics (RRD)**: visual performance charts for CPU utilization (%) and RAM consumption over the last **1 hour**, **24 hours**, or **7 days**.
+- **Interactive Historical Metrics (RRD)**: visual performance charts for CPU utilization (%) and RAM consumption over the last **1 hour**, **24 hours**, or **7 days** with average, peak, and live readings, coordinate reference scale, and interactive hover inspection cursor.
 - **Node & Cluster Insights**: node health metrics, memory usage, CPU load, and systemd service management (`pve-cluster`, `pvedaemon`, `pveproxy`).
 
 ### ⚡ Global Spotlight Command Palette

@@ -59,6 +59,7 @@ export const VMDetailView: React.FC = () => {
   const [rrdData, setRrdData] = useState<ProxmoxRRDPoint[]>([]);
   const [rrdTimeframe, setRrdTimeframe] = useState<'hour' | 'day' | 'week'>('hour');
   const [isRRDLoading, setIsRRDLoading] = useState<boolean>(false);
+  const [hoveredRrdIndex, setHoveredRrdIndex] = useState<number | null>(null);
 
   // Backups state
   const [backups, setBackups] = useState<ProxmoxBackup[]>([]);
@@ -1258,86 +1259,234 @@ export const VMDetailView: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* CPU Chart */}
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-center justify-between mb-3 text-xs">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    Навантаження CPU (%)
-                  </span>
-                  <span className="text-[11px] font-mono text-zinc-400">
-                    Пік: {(Math.max(...rrdData.map((d) => (d.cpu || 0) * 100)) || 0).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="h-28 w-full">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    {(() => {
-                      const valid = rrdData.filter((d) => d.cpu !== undefined);
-                      if (valid.length < 2) return null;
-                      const maxVal = Math.max(...valid.map((d) => (d.cpu || 0) * 100), 10);
-                      const points = valid.map((d, idx) => {
-                        const x = (idx / (valid.length - 1)) * 100;
-                        const y = 100 - (((d.cpu || 0) * 100) / maxVal) * 90;
-                        return `${x},${y}`;
-                      });
-                      const linePath = `M ${points.join(' L ')}`;
-                      const areaPath = `${linePath} L 100,100 L 0,100 Z`;
-                      return (
-                        <>
-                          <path d={areaPath} fill="url(#cpuGrad)" />
-                          <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
-                        </>
-                      );
-                    })()}
-                  </svg>
-                </div>
-              </div>
+              {(() => {
+                const valid = rrdData.filter((d) => d.cpu !== undefined);
+                if (valid.length < 2) return null;
+                const cpuPercents = valid.map((d) => (d.cpu || 0) * 100);
+                const maxVal = Math.max(...cpuPercents, 10);
+                const avgVal = cpuPercents.reduce((acc, v) => acc + v, 0) / cpuPercents.length;
+                const lastVal = cpuPercents[cpuPercents.length - 1];
+                const points = valid.map((d, idx) => {
+                  const x = (idx / (valid.length - 1)) * 100;
+                  const y = 100 - (((d.cpu || 0) * 100) / maxVal) * 90;
+                  return { x, y, d };
+                });
+                const linePath = `M ${points.map((p) => `${p.x},${p.y}`).join(' L ')}`;
+                const areaPath = `${linePath} L 100,100 L 0,100 Z`;
+                const activePoint = hoveredRrdIndex !== null && points[hoveredRrdIndex] ? points[hoveredRrdIndex] : null;
+
+                const handleChartMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  const nearestIdx = Math.round(relX * (points.length - 1));
+                  setHoveredRrdIndex(nearestIdx);
+                };
+
+                const startTime = new Date(valid[0].time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(valid[valid.length - 1].time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return (
+                  <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 transition-colors">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                        Навантаження CPU (%)
+                      </span>
+                      {activePoint ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {new Date(activePoint.d.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-[11px] font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
+                            {((activePoint.d.cpu || 0) * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-[11px] font-mono">
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Сер: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{avgVal.toFixed(1)}%</span>
+                          </span>
+                          <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Пік: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{Math.max(...cpuPercents).toFixed(1)}%</span>
+                          </span>
+                          <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Зараз: <span className="font-semibold text-blue-600 dark:text-blue-400">{lastVal.toFixed(1)}%</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="h-28 w-full relative">
+                      <svg
+                        className="w-full h-full overflow-visible cursor-crosshair select-none"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        onMouseMove={handleChartMouseMove}
+                        onMouseLeave={() => setHoveredRrdIndex(null)}
+                      >
+                        <defs>
+                          <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        {/* Background guide lines */}
+                        <line x1="0" y1="10" x2="100" y2="10" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="0.75" strokeDasharray="2,2" />
+                        <line x1="0" y1="55" x2="100" y2="55" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="0.75" strokeDasharray="2,2" />
+                        <line x1="0" y1="99" x2="100" y2="99" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="0.75" />
+                        <path d={areaPath} fill="url(#cpuGrad)" />
+                        <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
+                        {activePoint && (
+                          <g>
+                            <line
+                              x1={activePoint.x}
+                              y1={0}
+                              x2={activePoint.x}
+                              y2={100}
+                              stroke="#3B82F6"
+                              strokeWidth="1"
+                              strokeDasharray="2,2"
+                              opacity={0.7}
+                            />
+                            <circle
+                              cx={activePoint.x}
+                              cy={activePoint.y}
+                              r="3.5"
+                              className="fill-blue-600 dark:fill-blue-400 stroke-white dark:stroke-zinc-900"
+                              strokeWidth="1.5"
+                            />
+                          </g>
+                        )}
+                      </svg>
+                    </div>
+                    {/* Time range labels & axis preview */}
+                    <div className="flex justify-between items-center mt-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+                      <span>{startTime}</span>
+                      <span className="text-[9px] text-zinc-400">Шкала: 0% – {maxVal.toFixed(0)}%</span>
+                      <span>{endTime}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* RAM Chart */}
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-center justify-between mb-3 text-xs">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    Використання RAM (MB / GB)
-                  </span>
-                  <span className="text-[11px] font-mono text-zinc-400">
-                    Макс: {formatBytes(Math.max(...rrdData.map((d) => d.mem || 0)) || 0)}
-                  </span>
-                </div>
-                <div className="h-28 w-full">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="ramGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    {(() => {
-                      const valid = rrdData.filter((d) => d.mem !== undefined);
-                      if (valid.length < 2) return null;
-                      const maxVal = Math.max(...valid.map((d) => d.maxmem || d.mem || 1), 1);
-                      const points = valid.map((d, idx) => {
-                        const x = (idx / (valid.length - 1)) * 100;
-                        const y = 100 - (((d.mem || 0) / maxVal) * 90);
-                        return `${x},${y}`;
-                      });
-                      const linePath = `M ${points.join(' L ')}`;
-                      const areaPath = `${linePath} L 100,100 L 0,100 Z`;
-                      return (
-                        <>
-                          <path d={areaPath} fill="url(#ramGrad)" />
-                          <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" />
-                        </>
-                      );
-                    })()}
-                  </svg>
-                </div>
-              </div>
+              {(() => {
+                const valid = rrdData.filter((d) => d.mem !== undefined);
+                if (valid.length < 2) return null;
+                const memValues = valid.map((d) => d.mem || 0);
+                const maxAllocated = Math.max(...valid.map((d) => d.maxmem || 0), 0);
+                const maxVal = Math.max(...valid.map((d) => d.maxmem || d.mem || 1), 1);
+                const peakMem = Math.max(...memValues);
+                const avgMem = memValues.reduce((acc, v) => acc + v, 0) / memValues.length;
+                const lastMem = memValues[memValues.length - 1];
+
+                const points = valid.map((d, idx) => {
+                  const x = (idx / (valid.length - 1)) * 100;
+                  const y = 100 - (((d.mem || 0) / maxVal) * 90);
+                  return { x, y, d };
+                });
+                const linePath = `M ${points.map((p) => `${p.x},${p.y}`).join(' L ')}`;
+                const areaPath = `${linePath} L 100,100 L 0,100 Z`;
+                const activePoint = hoveredRrdIndex !== null && points[hoveredRrdIndex] ? points[hoveredRrdIndex] : null;
+
+                const handleChartMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  const nearestIdx = Math.round(relX * (points.length - 1));
+                  setHoveredRrdIndex(nearestIdx);
+                };
+
+                const startTime = new Date(valid[0].time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(valid[valid.length - 1].time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return (
+                  <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 transition-colors">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        Використання RAM (MB / GB)
+                      </span>
+                      {activePoint ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {new Date(activePoint.d.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                            {formatBytes(activePoint.d.mem || 0)}
+                            {activePoint.d.maxmem ? ` / ${formatBytes(activePoint.d.maxmem)}` : ''}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-[11px] font-mono">
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Сер: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatBytes(avgMem)}</span>
+                          </span>
+                          <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Пік: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatBytes(peakMem)}</span>
+                          </span>
+                          <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            Зараз: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatBytes(lastMem)}</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="h-28 w-full relative">
+                      <svg
+                        className="w-full h-full overflow-visible cursor-crosshair select-none"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        onMouseMove={handleChartMouseMove}
+                        onMouseLeave={() => setHoveredRrdIndex(null)}
+                      >
+                        <defs>
+                          <linearGradient id="ramGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#10B981" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        {/* Background guide lines */}
+                        <line x1="0" y1="10" x2="100" y2="10" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="0.75" strokeDasharray="2,2" />
+                        <line x1="0" y1="55" x2="100" y2="55" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="0.75" strokeDasharray="2,2" />
+                        <line x1="0" y1="99" x2="100" y2="99" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" strokeWidth="0.75" />
+                        <path d={areaPath} fill="url(#ramGrad)" />
+                        <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" />
+                        {activePoint && (
+                          <g>
+                            <line
+                              x1={activePoint.x}
+                              y1={0}
+                              x2={activePoint.x}
+                              y2={100}
+                              stroke="#10B981"
+                              strokeWidth="1"
+                              strokeDasharray="2,2"
+                              opacity={0.7}
+                            />
+                            <circle
+                              cx={activePoint.x}
+                              cy={activePoint.y}
+                              r="3.5"
+                              className="fill-emerald-600 dark:fill-emerald-400 stroke-white dark:stroke-zinc-900"
+                              strokeWidth="1.5"
+                            />
+                          </g>
+                        )}
+                      </svg>
+                    </div>
+                    {/* Time range labels & allocated memory preview */}
+                    <div className="flex justify-between items-center mt-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+                      <span>{startTime}</span>
+                      <span className="text-[9px] text-zinc-400">
+                        {maxAllocated > 0 ? `Ліміт: ${formatBytes(maxAllocated)}` : `Макс: ${formatBytes(maxVal)}`}
+                      </span>
+                      <span>{endTime}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
