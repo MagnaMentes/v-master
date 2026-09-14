@@ -15,7 +15,7 @@
     "package": "npm run build && electron-builder --mac",
     "package:win": "npm run build && electron-builder --win",
     "package:publish": "npm run build && electron-builder --mac --publish always",
-    "postinstall": "node -e \"const fs=require('fs'); if(!fs.existsSync('node_modules/electron/dist/Electron.app')) { require('child_process').execSync('unzip -q -o ~/Library/Caches/electron/*/electron-*-darwin-arm64.zip -d node_modules/electron/dist'); } fs.writeFileSync('node_modules/electron/path.txt', 'Electron.app/Contents/MacOS/Electron');\""
+    "postinstall": "node -e \"if (process.platform === 'darwin') { const fs=require('fs'); if(!fs.existsSync('node_modules/electron/dist/Electron.app')) { try { require('child_process').execSync('unzip -q -o ~/Library/Caches/electron/*/electron-*-darwin-arm64.zip -d node_modules/electron/dist', { stdio: 'ignore' }); fs.writeFileSync('node_modules/electron/path.txt', 'Electron.app/Contents/MacOS/Electron'); } catch {} } }\""
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
