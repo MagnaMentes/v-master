@@ -401,6 +401,67 @@ export interface WindowApi {
     getNodeTasks: (config: ProxmoxServerConfig, node: string, limit?: number) => Promise<ProxmoxNodeTask[]>;
     getNodeTaskLog: (config: ProxmoxServerConfig, node: string, upid: string) => Promise<string[]>;
     getNodeNetworks: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxNodeNetwork[]>;
+    createNodeNetwork: (
+      config: ProxmoxServerConfig,
+      node: string,
+      params: {
+        iface: string;
+        type: string;
+        cidr?: string;
+        gateway?: string;
+        bridge_ports?: string;
+        autostart?: boolean;
+        comments?: string;
+      }
+    ) => Promise<{ success: boolean; error?: string }>;
+    updateNodeNetwork: (
+      config: ProxmoxServerConfig,
+      node: string,
+      iface: string,
+      params: {
+        cidr?: string;
+        gateway?: string;
+        bridge_ports?: string;
+        autostart?: boolean;
+        comments?: string;
+      }
+    ) => Promise<{ success: boolean; error?: string }>;
+    deleteNodeNetwork: (config: ProxmoxServerConfig, node: string, iface: string) => Promise<{ success: boolean; error?: string }>;
+    applyNodeNetworkChanges: (config: ProxmoxServerConfig, node: string) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    revertNodeNetworkChanges: (config: ProxmoxServerConfig, node: string) => Promise<{ success: boolean; error?: string }>;
+    createStorage: (
+      config: ProxmoxServerConfig,
+      params: {
+        storage: string;
+        type: 'dir' | 'nfs' | 'lvmthin' | 'zfspool';
+        content?: string;
+        path?: string;
+        server?: string;
+        export?: string;
+        pool?: string;
+        thinpool?: string;
+        vgname?: string;
+      }
+    ) => Promise<{ success: boolean; error?: string }>;
+    deleteStorage: (config: ProxmoxServerConfig, storageId: string) => Promise<{ success: boolean; error?: string }>;
+    initGptDisk: (config: ProxmoxServerConfig, node: string, disk: string) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    wipeDisk: (config: ProxmoxServerConfig, node: string, disk: string) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    getNextVMID: (config: ProxmoxServerConfig) => Promise<number>;
+    createVM: (
+      config: ProxmoxServerConfig,
+      node: string,
+      params: {
+        vmid: number;
+        name: string;
+        cores?: number;
+        memory?: number;
+        diskSize?: number;
+        storage?: string;
+        bridge?: string;
+        iso?: string;
+        startAfterCreate?: boolean;
+      }
+    ) => Promise<{ success: boolean; taskId?: string; error?: string }>;
     getNodeSyslog: (config: ProxmoxServerConfig, node: string, limit?: number) => Promise<ProxmoxSyslogItem[]>;
   };
   ssh: {

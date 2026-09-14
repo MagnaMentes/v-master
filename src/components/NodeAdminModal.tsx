@@ -22,6 +22,12 @@ import {
   KeyRound,
   CheckCircle2,
   AlertCircle,
+  Plus,
+  Edit2,
+  Trash2,
+  Check,
+  AlertTriangle,
+  FolderPlus,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import type {
@@ -98,6 +104,90 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     total: number;
     currentPackage: string;
     percent: number;
+  } | null>(null);
+
+  // CRUD Network Modals
+  const [networkModal, setNetworkModal] = useState<{
+    isOpen: boolean;
+    mode: 'create' | 'edit';
+    iface: string;
+    type: string;
+    cidr: string;
+    gateway: string;
+    bridge_ports: string;
+    autostart: boolean;
+    comments: string;
+  }>({
+    isOpen: false,
+    mode: 'create',
+    iface: '',
+    type: 'bridge',
+    cidr: '',
+    gateway: '',
+    bridge_ports: '',
+    autostart: true,
+    comments: '',
+  });
+  const [networkPendingChanges, setNetworkPendingChanges] = useState(false);
+  const [applyingNetwork, setApplyingNetwork] = useState(false);
+
+  // CRUD Storage Modals
+  const [storageModal, setStorageModal] = useState<{
+    isOpen: boolean;
+    storage: string;
+    type: 'dir' | 'nfs' | 'lvmthin';
+    content: string;
+    path: string;
+    server: string;
+    export: string;
+    thinpool: string;
+    vgname: string;
+  }>({
+    isOpen: false,
+    storage: '',
+    type: 'dir',
+    content: 'images,iso,backup',
+    path: '/var/lib/vz',
+    server: '',
+    export: '',
+    thinpool: '',
+    vgname: '',
+  });
+
+  // Disk Wipe/Init modal
+  const [diskModal, setDiskModal] = useState<{
+    isOpen: boolean;
+    devpath: string;
+    action: 'initgpt' | 'wipe';
+  } | null>(null);
+
+  // Create VM Modal
+  const [createVMModal, setCreateVMModal] = useState<{
+    isOpen: boolean;
+    vmid: number;
+    name: string;
+    cores: number;
+    memory: number; // MB
+    diskSize: number; // GB
+    storage: string;
+    bridge: string;
+    startAfterCreate: boolean;
+  }>({
+    isOpen: false,
+    vmid: 100,
+    name: '',
+    cores: 2,
+    memory: 2048,
+    diskSize: 32,
+    storage: '',
+    bridge: 'vmbr0',
+    startAfterCreate: true,
+  });
+
+  // Action status notification
+  const [crudActionStatus, setCrudActionStatus] = useState<{
+    type: 'success' | 'error';
+    text: string;
   } | null>(null);
 
   const effectiveProfile: SSHProfile | null = useMemo(() => {
@@ -198,6 +288,182 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
       setLoadingNetwork(false);
     }
   }, [activeServer, nodeName]);
+
+  // CRUD Network Handlers
+  const handleSaveNetwork = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeServer || !nodeName) return;
+    try {
+      if (networkModal.mode === 'create') {
+        await window.api.proxmox.createNodeNetwork(activeServer, nodeName, {
+          iface: networkModal.iface.trim(),
+          type: networkModal.type,
+          cidr: networkModal.cidr.trim() || undefined,
+          gateway: networkModal.gateway.trim() || undefined,
+          bridge_ports: networkModal.bridge_ports.trim() || undefined,
+          autostart: networkModal.autostart,
+          comments: networkModal.comments.trim() || undefined,
+        });
+        setCrudActionStatus({ type: 'success', text: `Інтерфейс ${networkModal.iface} успішно створено (зміни очікують застосування)` });
+      } else {
+        await window.api.proxmox.updateNodeNetwork(activeServer, nodeName, networkModal.iface, {
+          cidr: networkModal.cidr.trim() || undefined,
+          gateway: networkModal.gateway.trim() || undefined,
+          bridge_ports: networkModal.bridge_ports.trim() || undefined,
+          autostart: networkModal.autostart,
+          comments: networkModal.comments.trim() || undefined,
+        });
+        setCrudActionStatus({ type: 'success', text: `Конфігурацію ${networkModal.iface} оновлено (зміни очікують застосування)` });
+      }
+      setNetworkModal((prev) => ({ ...prev, isOpen: false }));
+      setNetworkPendingChanges(true);
+      await loadNetwork();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка збереження мережевого інтерфейсу' });
+    }
+  };
+
+  const handleDeleteNetwork = async (iface: string) => {
+    if (!activeServer || !nodeName) return;
+    if (!confirm(`Ви дійсно бажаєте видалити мережевий інтерфейс ${iface}?`)) return;
+    try {
+      await window.api.proxmox.deleteNodeNetwork(activeServer, nodeName, iface);
+      setCrudActionStatus({ type: 'success', text: `Інтерфейс ${iface} позначено для видалення` });
+      setNetworkPendingChanges(true);
+      await loadNetwork();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Не вдалося видалити інтерфейс' });
+    }
+  };
+
+  const handleApplyNetwork = async () => {
+    if (!activeServer || !nodeName) return;
+    setApplyingNetwork(true);
+    try {
+      const res = await window.api.proxmox.applyNodeNetworkChanges(activeServer, nodeName);
+      if (res.success) {
+        setCrudActionStatus({ type: 'success', text: 'Зміни конфігурації мережі успішно застосовано!' });
+        setNetworkPendingChanges(false);
+        await loadNetwork();
+      }
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка застосування змін мережі' });
+    } finally {
+      setApplyingNetwork(false);
+    }
+  };
+
+  const handleRevertNetwork = async () => {
+    if (!activeServer || !nodeName) return;
+    try {
+      await window.api.proxmox.revertNodeNetworkChanges(activeServer, nodeName);
+      setCrudActionStatus({ type: 'success', text: 'Усі незбережені зміни мережі скасовано' });
+      setNetworkPendingChanges(false);
+      await loadNetwork();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка скасування змін мережі' });
+    }
+  };
+
+  // CRUD Storage Handlers
+  const handleCreateStorage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeServer) return;
+    try {
+      await window.api.proxmox.createStorage(activeServer, {
+        storage: storageModal.storage.trim(),
+        type: storageModal.type,
+        content: storageModal.content.trim() || undefined,
+        path: storageModal.type === 'dir' ? storageModal.path.trim() : undefined,
+        server: storageModal.type === 'nfs' ? storageModal.server.trim() : undefined,
+        export: storageModal.type === 'nfs' ? storageModal.export.trim() : undefined,
+        thinpool: storageModal.type === 'lvmthin' ? storageModal.thinpool.trim() : undefined,
+        vgname: storageModal.type === 'lvmthin' ? storageModal.vgname.trim() : undefined,
+      });
+      setCrudActionStatus({ type: 'success', text: `Сховище ${storageModal.storage} успішно підключено` });
+      setStorageModal((prev) => ({ ...prev, isOpen: false }));
+      await loadStorageAndDisks();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Не вдалося створити сховище' });
+    }
+  };
+
+  const handleDeleteStorage = async (storageId: string) => {
+    if (!activeServer) return;
+    if (!confirm(`Ви дійсно бажаєте видалити конфігурацію сховища ${storageId}? Дані на диску не видаляються.`)) return;
+    try {
+      await window.api.proxmox.deleteStorage(activeServer, storageId);
+      setCrudActionStatus({ type: 'success', text: `Сховище ${storageId} видалено з кластера` });
+      await loadStorageAndDisks();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка видалення сховища' });
+    }
+  };
+
+  // Disk Action Handlers
+  const handleDiskAction = async () => {
+    if (!activeServer || !nodeName || !diskModal) return;
+    const { devpath, action } = diskModal;
+    setDiskModal(null);
+    try {
+      if (action === 'initgpt') {
+        const res = await window.api.proxmox.initGptDisk(activeServer, nodeName, devpath);
+        setCrudActionStatus({ type: 'success', text: `Ініціалізацію GPT для ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
+      } else {
+        const res = await window.api.proxmox.wipeDisk(activeServer, nodeName, devpath);
+        setCrudActionStatus({ type: 'success', text: `Очищення диска ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
+      }
+      await loadStorageAndDisks();
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка виконання операції над диском' });
+    }
+  };
+
+  // Create VM Handlers
+  const handleOpenCreateVM = async () => {
+    if (!activeServer) return;
+    try {
+      const nextId = await window.api.proxmox.getNextVMID(activeServer);
+      const defaultStorage = storages.find((s) => s.content?.includes('images') || s.type === 'lvmthin' || s.type === 'dir')?.storage || 'local-lvm';
+      setCreateVMModal({
+        isOpen: true,
+        vmid: nextId || 100,
+        name: `vm-${nextId || 100}`,
+        cores: 2,
+        memory: 2048,
+        diskSize: 32,
+        storage: defaultStorage,
+        bridge: networks.find((n) => n.iface.startsWith('vmbr'))?.iface || 'vmbr0',
+        startAfterCreate: true,
+      });
+    } catch {
+      setCreateVMModal((prev) => ({ ...prev, isOpen: true }));
+    }
+  };
+
+  const handleCreateVM = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeServer || !nodeName) return;
+    try {
+      const res = await window.api.proxmox.createVM(activeServer, nodeName, {
+        vmid: Number(createVMModal.vmid),
+        name: createVMModal.name.trim() || `vm-${createVMModal.vmid}`,
+        cores: Number(createVMModal.cores) || 2,
+        memory: Number(createVMModal.memory) || 2048,
+        diskSize: Number(createVMModal.diskSize) || 32,
+        storage: createVMModal.storage || undefined,
+        bridge: createVMModal.bridge || 'vmbr0',
+        startAfterCreate: createVMModal.startAfterCreate,
+      });
+      setCrudActionStatus({
+        type: 'success',
+        text: `Віртуальну машину #${createVMModal.vmid} успішно створено на ${nodeName}! (Task: ${res.taskId || 'OK'})`,
+      });
+      setCreateVMModal((prev) => ({ ...prev, isOpen: false }));
+    } catch (err: any) {
+      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка створення віртуальної машини' });
+    }
+  };
 
   const loadTasks = useCallback(async () => {
     if (!activeServer || !nodeName) return;
@@ -507,6 +773,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenCreateVM}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
+              title="Створити нову віртуальну машину (QEMU KVM) на цьому вузлі"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Створити ВМ</span>
+            </button>
             {onOpenTerminal && (
               <button
                 onClick={onOpenTerminal}
@@ -610,6 +884,33 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
         {/* Tab Content Body */}
         <div className="flex-1 overflow-y-auto p-6 bg-zinc-50/50 dark:bg-[#161618]">
+          {/* CRUD Status Alert */}
+          {crudActionStatus && (
+            <div
+              className={`mb-4 px-4 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                crudActionStatus.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {crudActionStatus.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                )}
+                <span>{crudActionStatus.text}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCrudActionStatus(null)}
+                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: OVERVIEW & HARDWARE STATUS */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
@@ -636,70 +937,89 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             <span>Завантаження CPU</span>
                             <Cpu className="w-4 h-4 text-blue-500" />
                           </div>
-                          <div className="mt-2 flex items-baseline justify-between">
-                            <span className={`text-lg font-bold ${textColor}`}>
-                              {cpuPct}%
-                            </span>
+                          <div className="mt-2 flex items-baseline gap-2">
+                            <span className={`text-2xl font-bold tracking-tight ${textColor}`}>{cpuPct}%</span>
                             {loadAvgStr && (
-                              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono" title="Load Average (1, 5, 15 хв)">
-                                LA: {loadAvgStr}
-                              </span>
+                              <span className="text-[11px] text-zinc-400 font-mono">LA: {loadAvgStr}</span>
                             )}
                           </div>
-                          <div className="mt-1 w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                          <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
                             <div
-                              className={`${cpuColor} h-full rounded-full transition-all`}
+                              className={`h-full rounded-full transition-all duration-300 ${cpuColor}`}
                               style={{ width: `${Math.min(cpuVal, 100)}%` }}
                             />
                           </div>
-                          <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 truncate" title={nodeStatus?.cpuinfo?.model}>
-                            {nodeStatus?.cpuinfo?.cpus || 1} CPU cores • {nodeStatus?.cpuinfo?.model || 'Процесор вузла'}
-                          </div>
+                          <p className="mt-2.5 text-[11px] text-zinc-500 truncate" title={nodeStatus?.cpuinfo?.model || 'Процесор хоста'}>
+                            {nodeStatus?.cpuinfo?.cpus ? `${nodeStatus.cpuinfo.cpus} CPU cores • ` : ''}
+                            {nodeStatus?.cpuinfo?.model || 'Завантаження ядер вузла'}
+                          </p>
                         </div>
                       );
                     })()}
 
-                    <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
-                      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                        <span>Оперативна пам'ять (RAM)</span>
-                        <Activity className="w-4 h-4 text-emerald-500" />
-                      </div>
-                      <div className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                        {formatBytes(nodeStatus?.memory?.used || 0)} / {formatBytes(nodeStatus?.memory?.total || 0)}
-                      </div>
-                      <div className="mt-1 w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className="bg-emerald-500 h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(
-                              nodeStatus?.memory?.total ? ((nodeStatus.memory.used || 0) / nodeStatus.memory.total) * 100 : 0,
-                              100
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+                    {/* RAM Utilization */}
+                    {(() => {
+                      const memUsed = nodeStatus?.memory?.used || 0;
+                      const memTotal = nodeStatus?.memory?.total || 1;
+                      const memPct = Math.round((memUsed / memTotal) * 100);
 
-                    <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
-                      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                        <span>Файл підкачки (SWAP)</span>
-                        <Layers className="w-4 h-4 text-indigo-500" />
-                      </div>
-                      <div className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                        {formatBytes(nodeStatus?.swap?.used || 0)} / {formatBytes(nodeStatus?.swap?.total || 0)}
-                      </div>
-                      <div className="mt-1 w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className="bg-indigo-500 h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(
-                              nodeStatus?.swap?.total ? ((nodeStatus.swap.used || 0) / nodeStatus.swap.total) * 100 : 0,
-                              100
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+                      return (
+                        <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
+                          <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                            <span>Оперативна пам'ять (RAM)</span>
+                            <Activity className="w-4 h-4 text-emerald-500" />
+                          </div>
+                          <div className="mt-2 flex items-baseline gap-2">
+                            <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                              {formatBytes(memUsed)} / {formatBytes(memTotal)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                memPct > 85 ? 'bg-rose-500' : memPct > 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(memPct, 100)}%` }}
+                            />
+                          </div>
+                          <p className="mt-2.5 text-[11px] text-zinc-500">
+                            Використано {memPct}% від загального обсягу пам'яті
+                          </p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* SWAP Utilization */}
+                    {(() => {
+                      const swapUsed = nodeStatus?.swap?.used || 0;
+                      const swapTotal = nodeStatus?.swap?.total || 0;
+                      const swapPct = swapTotal > 0 ? Math.round((swapUsed / swapTotal) * 100) : 0;
+
+                      return (
+                        <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
+                          <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                            <span>Файл підкачки (SWAP)</span>
+                            <Layers className="w-4 h-4 text-indigo-500" />
+                          </div>
+                          <div className="mt-2 flex items-baseline gap-2">
+                            <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                              {formatBytes(swapUsed)} / {formatBytes(swapTotal)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                swapPct > 80 ? 'bg-rose-500' : swapPct > 40 ? 'bg-amber-500' : 'bg-indigo-500'
+                              }`}
+                              style={{ width: `${Math.min(swapPct, 100)}%` }}
+                            />
+                          </div>
+                          <p className="mt-2.5 text-[11px] text-zinc-500">
+                            {swapTotal > 0 ? `Використано ${swapPct}% swap простору` : 'SWAP не налаштовано'}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* System & Kernel Detailed Table */}
@@ -708,7 +1028,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       <span>Системні відомості ядра та версій</span>
                       <button
                         onClick={loadOverview}
-                        className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
@@ -763,12 +1083,31 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       Сховища кластера (PVE Storage Pools)
                     </h4>
                   </div>
-                  <button
-                    onClick={loadStorageAndDisks}
-                    className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingStorage ? 'animate-spin' : ''}`} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setStorageModal({
+                        isOpen: true,
+                        storage: '',
+                        type: 'dir',
+                        content: 'images,iso,backup',
+                        path: '/var/lib/vz',
+                        server: '',
+                        export: '',
+                        thinpool: '',
+                        vgname: '',
+                      })}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
+                    >
+                      <FolderPlus className="w-3.5 h-3.5" />
+                      <span>Додати сховище</span>
+                    </button>
+                    <button
+                      onClick={loadStorageAndDisks}
+                      className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingStorage ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -781,6 +1120,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                         <th className="px-4 py-2.5 font-medium">Вміст (Content)</th>
                         <th className="px-4 py-2.5 font-medium">Заповненість</th>
                         <th className="px-4 py-2.5 font-medium text-right">Вільний простір</th>
+                        <th className="px-4 py-2.5 text-right font-medium">Дії</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
@@ -820,6 +1160,16 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             <td className="px-4 py-2.5 text-right font-medium">
                               {formatBytes(s.avail)} / {formatBytes(s.total)}
                             </td>
+                            <td className="px-4 py-2.5 text-right font-sans">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteStorage(s.storage)}
+                                title="Видалити сховище з кластера"
+                                className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -849,7 +1199,8 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                         <th className="px-4 py-2.5 font-medium">Серійний №</th>
                         <th className="px-4 py-2.5 font-medium">Тип</th>
                         <th className="px-4 py-2.5 font-medium">Розмір</th>
-                        <th className="px-4 py-2.5 text-right font-medium">Знос / Температура</th>
+                        <th className="px-4 py-2.5 font-medium">Знос / Температура</th>
+                        <th className="px-4 py-2.5 text-right font-medium">Керування</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
@@ -873,10 +1224,30 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             <td className="px-4 py-2.5 text-zinc-400 text-[11px]">{d.serial || '—'}</td>
                             <td className="px-4 py-2.5 text-zinc-500 uppercase">{d.type}</td>
                             <td className="px-4 py-2.5 font-semibold">{formatBytes(d.size)}</td>
-                            <td className="px-4 py-2.5 text-right font-sans">
+                            <td className="px-4 py-2.5 font-sans">
                               {d.wearout !== undefined ? `Знос: ${d.wearout}%` : ''}
                               {d.temperature !== undefined ? ` ${d.temperature}°C` : ''}
                               {d.wearout === undefined && d.temperature === undefined ? '—' : ''}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-sans">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setDiskModal({ isOpen: true, devpath: d.devpath, action: 'initgpt' })}
+                                  title="Ініціалізувати диск з розміткою GPT"
+                                  className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] transition-colors cursor-pointer"
+                                >
+                                  Init GPT
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDiskModal({ isOpen: true, devpath: d.devpath, action: 'wipe' })}
+                                  title="Очистити таблицю розділів диска (Wipe Disk)"
+                                  className="px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-[11px] transition-colors cursor-pointer"
+                                >
+                                  Wipe
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -897,13 +1268,60 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                     Мережеві інтерфейси вузла (Linux Bridges, Bonds, NICs)
                   </h4>
+                  {networkPendingChanges && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
+                      Є незбережені зміни
+                    </span>
+                  )}
                 </div>
-                <button
-                  onClick={loadNetwork}
-                  className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingNetwork ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {networkPendingChanges && (
+                    <>
+                      <button
+                        onClick={handleApplyNetwork}
+                        disabled={applyingNetwork}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        title="Застосувати зміни мережевої конфігурації"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>{applyingNetwork ? 'Застосування...' : 'Застосувати зміни'}</span>
+                      </button>
+                      <button
+                        onClick={handleRevertNetwork}
+                        className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-medium transition-colors cursor-pointer"
+                        title="Скасувати незбережені зміни"
+                      >
+                        Скасувати
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => {
+                      const nextIfaceNum = networks.filter((n) => n.iface.startsWith('vmbr')).length;
+                      setNetworkModal({
+                        isOpen: true,
+                        mode: 'create',
+                        iface: `vmbr${nextIfaceNum}`,
+                        type: 'bridge',
+                        cidr: '',
+                        gateway: '',
+                        bridge_ports: '',
+                        autostart: true,
+                        comments: '',
+                      });
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Створити Linux Bridge</span>
+                  </button>
+                  <button
+                    onClick={loadNetwork}
+                    className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingNetwork ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -916,7 +1334,8 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       <th className="px-4 py-2.5 font-medium">CIDR / IP адреса</th>
                       <th className="px-4 py-2.5 font-medium">Шлюз (Gateway)</th>
                       <th className="px-4 py-2.5 font-medium">Порти мосту (Bridge Ports)</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Коментар</th>
+                      <th className="px-4 py-2.5 font-medium">Коментар</th>
+                      <th className="px-4 py-2.5 text-right font-medium">Дії</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
@@ -942,7 +1361,37 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                         <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-300 font-sans">
                           {net.bridge_ports || net.slaves || '—'}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-zinc-400 font-sans">{net.comments || '—'}</td>
+                        <td className="px-4 py-2.5 text-zinc-400 font-sans">{net.comments || '—'}</td>
+                        <td className="px-4 py-2.5 text-right font-sans">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setNetworkModal({
+                                isOpen: true,
+                                mode: 'edit',
+                                iface: net.iface,
+                                type: net.type,
+                                cidr: net.cidr || net.address || '',
+                                gateway: net.gateway || '',
+                                bridge_ports: net.bridge_ports || net.slaves || '',
+                                autostart: net.autostart !== false,
+                                comments: net.comments || '',
+                              })}
+                              title="Редагувати конфігурацію інтерфейсу"
+                              className="p-1 rounded text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteNetwork(net.iface)}
+                              title="Видалити інтерфейс"
+                              className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1368,6 +1817,433 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Create VM */}
+      {createVMModal.isOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-6 flex flex-col gap-4 modal-animate">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+              <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
+                <Plus className="w-4 h-4 text-blue-500" />
+                <span>Створити віртуальну машину (QEMU) на {nodeName}</span>
+              </div>
+              <button
+                onClick={() => setCreateVMModal((prev) => ({ ...prev, isOpen: false }))}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateVM} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">VM ID *</label>
+                  <input
+                    type="number"
+                    required
+                    value={createVMModal.vmid}
+                    onChange={(e) => setCreateVMModal((prev) => ({ ...prev, vmid: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Назва машини *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createVMModal.name}
+                    onChange={(e) => setCreateVMModal((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="my-ubuntu-server"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Ядра CPU (Cores)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={128}
+                    value={createVMModal.cores}
+                    onChange={(e) => setCreateVMModal((prev) => ({ ...prev, cores: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">RAM (МБ)</label>
+                  <input
+                    type="number"
+                    min={512}
+                    step={512}
+                    value={createVMModal.memory}
+                    onChange={(e) => setCreateVMModal((prev) => ({ ...prev, memory: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Сховище диска</label>
+                  <select
+                    value={createVMModal.storage}
+                    onChange={(e) => setCreateVMModal((prev) => ({ ...prev, storage: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  >
+                    {storages.map((s) => (
+                      <option key={s.storage} value={s.storage}>
+                        {s.storage} ({s.type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Розмір диска (ГБ)</label>
+                  <input
+                    type="number"
+                    min={4}
+                    value={createVMModal.diskSize}
+                    onChange={(e) => setCreateVMModal((prev) => ({ ...prev, diskSize: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Мережевий міст (Bridge)</label>
+                <select
+                  value={createVMModal.bridge}
+                  onChange={(e) => setCreateVMModal((prev) => ({ ...prev, bridge: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                >
+                  {networks.filter((n) => n.type === 'bridge' || n.iface.startsWith('vmbr')).map((n) => (
+                    <option key={n.iface} value={n.iface}>
+                      {n.iface} {n.comments ? `(${n.comments})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="startVmAfterCreate"
+                  checked={createVMModal.startAfterCreate}
+                  onChange={(e) => setCreateVMModal((prev) => ({ ...prev, startAfterCreate: e.target.checked }))}
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="startVmAfterCreate" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                  Запустити ВМ одразу після створення
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setCreateVMModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
+                >
+                  Створити ВМ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Network Bridge Form (Create/Edit) */}
+      {networkModal.isOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-6 flex flex-col gap-4 modal-animate">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+              <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
+                <Network className="w-4 h-4 text-blue-500" />
+                <span>{networkModal.mode === 'create' ? 'Створити Linux Bridge' : `Редагувати ${networkModal.iface}`}</span>
+              </div>
+              <button
+                onClick={() => setNetworkModal((prev) => ({ ...prev, isOpen: false }))}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNetwork} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Інтерфейс *</label>
+                <input
+                  type="text"
+                  required
+                  disabled={networkModal.mode === 'edit'}
+                  value={networkModal.iface}
+                  onChange={(e) => setNetworkModal((prev) => ({ ...prev, iface: e.target.value }))}
+                  placeholder="vmbr0"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono disabled:opacity-50"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">IPv4/CIDR</label>
+                  <input
+                    type="text"
+                    value={networkModal.cidr}
+                    onChange={(e) => setNetworkModal((prev) => ({ ...prev, cidr: e.target.value }))}
+                    placeholder="192.168.1.10/24"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Шлюз (Gateway)</label>
+                  <input
+                    type="text"
+                    value={networkModal.gateway}
+                    onChange={(e) => setNetworkModal((prev) => ({ ...prev, gateway: e.target.value }))}
+                    placeholder="192.168.1.1"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Порти мосту (Bridge Ports)</label>
+                <input
+                  type="text"
+                  value={networkModal.bridge_ports}
+                  onChange={(e) => setNetworkModal((prev) => ({ ...prev, bridge_ports: e.target.value }))}
+                  placeholder="eth0 або eno1"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Коментар</label>
+                <input
+                  type="text"
+                  value={networkModal.comments}
+                  onChange={(e) => setNetworkModal((prev) => ({ ...prev, comments: e.target.value }))}
+                  placeholder="Локальний мережевий міст для ВМ"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="netAutostart"
+                  checked={networkModal.autostart}
+                  onChange={(e) => setNetworkModal((prev) => ({ ...prev, autostart: e.target.checked }))}
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="netAutostart" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                  Автозапуск при завантаженні вузла (Autostart)
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setNetworkModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
+                >
+                  Зберегти інтерфейс
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Create Storage */}
+      {storageModal.isOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-6 flex flex-col gap-4 modal-animate">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
+              <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
+                <FolderPlus className="w-4 h-4 text-blue-500" />
+                <span>Підключити сховище до кластера</span>
+              </div>
+              <button
+                onClick={() => setStorageModal((prev) => ({ ...prev, isOpen: false }))}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateStorage} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">ID Сховища (Storage ID) *</label>
+                <input
+                  type="text"
+                  required
+                  value={storageModal.storage}
+                  onChange={(e) => setStorageModal((prev) => ({ ...prev, storage: e.target.value }))}
+                  placeholder="backup-storage або data-nvme"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Тип сховища</label>
+                <select
+                  value={storageModal.type}
+                  onChange={(e: any) => setStorageModal((prev) => ({ ...prev, type: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
+                >
+                  <option value="dir">Directory (Каталог файлової системи)</option>
+                  <option value="nfs">NFS (Мережева файлова система)</option>
+                  <option value="lvmthin">LVM-Thin Pool</option>
+                </select>
+              </div>
+
+              {storageModal.type === 'dir' && (
+                <div>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Шлях до каталогу (Directory Path) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={storageModal.path}
+                    onChange={(e) => setStorageModal((prev) => ({ ...prev, path: e.target.value }))}
+                    placeholder="/mnt/storage"
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                  />
+                </div>
+              )}
+
+              {storageModal.type === 'nfs' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Сервер NFS *</label>
+                    <input
+                      type="text"
+                      required
+                      value={storageModal.server}
+                      onChange={(e) => setStorageModal((prev) => ({ ...prev, server: e.target.value }))}
+                      placeholder="192.168.1.50"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Export Path *</label>
+                    <input
+                      type="text"
+                      required
+                      value={storageModal.export}
+                      onChange={(e) => setStorageModal((prev) => ({ ...prev, export: e.target.value }))}
+                      placeholder="/export/data"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {storageModal.type === 'lvmthin' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Volume Group (vgname) *</label>
+                    <input
+                      type="text"
+                      required
+                      value={storageModal.vgname}
+                      onChange={(e) => setStorageModal((prev) => ({ ...prev, vgname: e.target.value }))}
+                      placeholder="pve"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Thin Pool *</label>
+                    <input
+                      type="text"
+                      required
+                      value={storageModal.thinpool}
+                      onChange={(e) => setStorageModal((prev) => ({ ...prev, thinpool: e.target.value }))}
+                      placeholder="data"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Вміст (Content)</label>
+                <input
+                  type="text"
+                  value={storageModal.content}
+                  onChange={(e) => setStorageModal((prev) => ({ ...prev, content: e.target.value }))}
+                  placeholder="images,iso,backup,snippets"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
+                />
+                <p className="text-[10px] text-zinc-400 mt-1">Доступні типи: images, iso, backup, vztmpl, snippets</p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setStorageModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
+                >
+                  Підключити сховище
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Disk Action Confirmation */}
+      {diskModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate">
+            <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400 font-semibold text-sm">
+              <AlertTriangle className="w-5 h-5" />
+              <span>{diskModal.action === 'initgpt' ? 'Ініціалізація GPT диска' : 'Очищення диска (Wipe Disk)'}</span>
+            </div>
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Ви збираєтеся виконати дію над пристроєм <code className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{diskModal.devpath}</code>.
+              <br />
+              <strong className="text-rose-600 dark:text-rose-400">Увага:</strong> Ця операція перезапише або видалить таблицю розділів і всі існуючі файли на цьому диску.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDiskModal(null)}
+                className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={handleDiskAction}
+                className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs"
+              >
+                Підтвердити операцію
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -627,6 +627,209 @@ export class ProxmoxService {
     }));
   }
 
+  public async createNodeNetwork(
+    config: ProxmoxServerConfig,
+    node: string,
+    params: {
+      iface: string;
+      type: string;
+      cidr?: string;
+      gateway?: string;
+      bridge_ports?: string;
+      autostart?: boolean;
+      comments?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const payload: any = {
+      iface: params.iface,
+      type: params.type,
+      autostart: params.autostart ? 1 : 0,
+    };
+    if (params.cidr) payload.cidr = params.cidr;
+    if (params.gateway) payload.gateway = params.gateway;
+    if (params.bridge_ports) payload.bridge_ports = params.bridge_ports;
+    if (params.comments) payload.comments = params.comments;
+
+    await client.post(`/nodes/${node}/network`, payload, { headers });
+    return { success: true };
+  }
+
+  public async updateNodeNetwork(
+    config: ProxmoxServerConfig,
+    node: string,
+    iface: string,
+    params: {
+      cidr?: string;
+      gateway?: string;
+      bridge_ports?: string;
+      autostart?: boolean;
+      comments?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const payload: any = {};
+    if (params.autostart !== undefined) payload.autostart = params.autostart ? 1 : 0;
+    if (params.cidr !== undefined) payload.cidr = params.cidr;
+    if (params.gateway !== undefined) payload.gateway = params.gateway;
+    if (params.bridge_ports !== undefined) payload.bridge_ports = params.bridge_ports;
+    if (params.comments !== undefined) payload.comments = params.comments;
+
+    await client.put(`/nodes/${node}/network/${encodeURIComponent(iface)}`, payload, { headers });
+    return { success: true };
+  }
+
+  public async deleteNodeNetwork(
+    config: ProxmoxServerConfig,
+    node: string,
+    iface: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    await client.delete(`/nodes/${node}/network/${encodeURIComponent(iface)}`, { headers });
+    return { success: true };
+  }
+
+  public async applyNodeNetworkChanges(
+    config: ProxmoxServerConfig,
+    node: string
+  ): Promise<{ success: boolean; taskId?: string; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.put(`/nodes/${node}/network`, null, { headers });
+    return { success: true, taskId: res.data?.data };
+  }
+
+  public async revertNodeNetworkChanges(
+    config: ProxmoxServerConfig,
+    node: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    await client.delete(`/nodes/${node}/network`, { headers });
+    return { success: true };
+  }
+
+  public async createStorage(
+    config: ProxmoxServerConfig,
+    params: {
+      storage: string;
+      type: 'dir' | 'nfs' | 'lvmthin' | 'zfspool';
+      content?: string;
+      path?: string;
+      server?: string;
+      export?: string;
+      pool?: string;
+      thinpool?: string;
+      vgname?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const payload: any = {
+      storage: params.storage,
+      type: params.type,
+    };
+    if (params.content) payload.content = params.content;
+    if (params.path) payload.path = params.path;
+    if (params.server) payload.server = params.server;
+    if (params.export) payload.export = params.export;
+    if (params.pool) payload.pool = params.pool;
+    if (params.thinpool) payload.thinpool = params.thinpool;
+    if (params.vgname) payload.vgname = params.vgname;
+
+    await client.post(`/storage`, payload, { headers });
+    return { success: true };
+  }
+
+  public async deleteStorage(
+    config: ProxmoxServerConfig,
+    storageId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    await client.delete(`/storage/${encodeURIComponent(storageId)}`, { headers });
+    return { success: true };
+  }
+
+  public async initGptDisk(
+    config: ProxmoxServerConfig,
+    node: string,
+    disk: string
+  ): Promise<{ success: boolean; taskId?: string; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.post(`/nodes/${node}/disks/initgpt`, { disk }, { headers });
+    return { success: true, taskId: res.data?.data };
+  }
+
+  public async wipeDisk(
+    config: ProxmoxServerConfig,
+    node: string,
+    disk: string
+  ): Promise<{ success: boolean; taskId?: string; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.put(`/nodes/${node}/disks/wipedisk`, { disk }, { headers });
+    return { success: true, taskId: res.data?.data };
+  }
+
+  public async getNextVMID(
+    config: ProxmoxServerConfig
+  ): Promise<number> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get('/cluster/nextid', { headers });
+    return Number(res.data?.data) || 100;
+  }
+
+  public async createVM(
+    config: ProxmoxServerConfig,
+    node: string,
+    params: {
+      vmid: number;
+      name: string;
+      cores?: number;
+      memory?: number; // MB
+      diskSize?: number; // GB
+      storage?: string;
+      bridge?: string;
+      iso?: string;
+      startAfterCreate?: boolean;
+    }
+  ): Promise<{ success: boolean; taskId?: string; error?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const payload: any = {
+      vmid: params.vmid,
+      name: params.name,
+      cores: params.cores || 2,
+      sockets: 1,
+      memory: params.memory || 2048,
+      net0: `virtio,bridge=${params.bridge || 'vmbr0'}`,
+    };
+
+    if (params.storage) {
+      const diskGb = params.diskSize || 32;
+      payload.scsihw = 'virtio-scsi-pci';
+      payload.scsi0 = `${params.storage}:${diskGb},discard=on,ssd=1`;
+      payload.boot = 'order=scsi0;ide2;net0';
+    }
+
+    if (params.iso) {
+      payload.ide2 = `${params.iso},media=cdrom`;
+    }
+
+    if (params.startAfterCreate) {
+      payload.start = 1;
+    }
+
+    const res = await client.post(`/nodes/${node}/qemu`, payload, { headers });
+    return { success: true, taskId: res.data?.data };
+  }
+
   public async getNodeSyslog(
     config: ProxmoxServerConfig,
     node: string,

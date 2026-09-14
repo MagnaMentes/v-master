@@ -124,6 +124,28 @@ const api = {
       ipcRenderer.invoke('proxmox:getNodeTaskLog', config, node, upid),
     getNodeNetworks: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
       ipcRenderer.invoke('proxmox:getNodeNetworks', config, node),
+    createNodeNetwork: (config: ProxmoxServerConfig, node: string, params: any): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:createNodeNetwork', config, node, params),
+    updateNodeNetwork: (config: ProxmoxServerConfig, node: string, iface: string, params: any): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:updateNodeNetwork', config, node, iface, params),
+    deleteNodeNetwork: (config: ProxmoxServerConfig, node: string, iface: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:deleteNodeNetwork', config, node, iface),
+    applyNodeNetworkChanges: (config: ProxmoxServerConfig, node: string): Promise<{ success: boolean; taskId?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:applyNodeNetworkChanges', config, node),
+    revertNodeNetworkChanges: (config: ProxmoxServerConfig, node: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:revertNodeNetworkChanges', config, node),
+    createStorage: (config: ProxmoxServerConfig, params: any): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:createStorage', config, params),
+    deleteStorage: (config: ProxmoxServerConfig, storageId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('proxmox:deleteStorage', config, storageId),
+    initGptDisk: (config: ProxmoxServerConfig, node: string, disk: string): Promise<{ success: boolean; taskId?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:initGptDisk', config, node, disk),
+    wipeDisk: (config: ProxmoxServerConfig, node: string, disk: string): Promise<{ success: boolean; taskId?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:wipeDisk', config, node, disk),
+    getNextVMID: (config: ProxmoxServerConfig): Promise<number> =>
+      ipcRenderer.invoke('proxmox:getNextVMID', config),
+    createVM: (config: ProxmoxServerConfig, node: string, params: any): Promise<{ success: boolean; taskId?: string; error?: string }> =>
+      ipcRenderer.invoke('proxmox:createVM', config, node, params),
     getNodeSyslog: (config: ProxmoxServerConfig, node: string, limit?: number): Promise<any[]> =>
       ipcRenderer.invoke('proxmox:getNodeSyslog', config, node, limit),
   },

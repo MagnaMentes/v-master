@@ -314,6 +314,51 @@ function registerIpcHandlers() {
   ipcMain.handle('proxmox:getNodeNetworks', (_e, config: ProxmoxServerConfig, node: string) =>
     proxmox.getNodeNetworks(config, node)
   );
+  ipcMain.handle(
+    'proxmox:createNodeNetwork',
+    (_e, config: ProxmoxServerConfig, node: string, params: any) =>
+      proxmox.createNodeNetwork(config, node, params)
+  );
+  ipcMain.handle(
+    'proxmox:updateNodeNetwork',
+    (_e, config: ProxmoxServerConfig, node: string, iface: string, params: any) =>
+      proxmox.updateNodeNetwork(config, node, iface, params)
+  );
+  ipcMain.handle(
+    'proxmox:deleteNodeNetwork',
+    (_e, config: ProxmoxServerConfig, node: string, iface: string) =>
+      proxmox.deleteNodeNetwork(config, node, iface)
+  );
+  ipcMain.handle(
+    'proxmox:applyNodeNetworkChanges',
+    (_e, config: ProxmoxServerConfig, node: string) =>
+      proxmox.applyNodeNetworkChanges(config, node)
+  );
+  ipcMain.handle(
+    'proxmox:revertNodeNetworkChanges',
+    (_e, config: ProxmoxServerConfig, node: string) =>
+      proxmox.revertNodeNetworkChanges(config, node)
+  );
+  ipcMain.handle('proxmox:createStorage', (_e, config: ProxmoxServerConfig, params: any) =>
+    proxmox.createStorage(config, params)
+  );
+  ipcMain.handle('proxmox:deleteStorage', (_e, config: ProxmoxServerConfig, storageId: string) =>
+    proxmox.deleteStorage(config, storageId)
+  );
+  ipcMain.handle('proxmox:initGptDisk', (_e, config: ProxmoxServerConfig, node: string, disk: string) =>
+    proxmox.initGptDisk(config, node, disk)
+  );
+  ipcMain.handle('proxmox:wipeDisk', (_e, config: ProxmoxServerConfig, node: string, disk: string) =>
+    proxmox.wipeDisk(config, node, disk)
+  );
+  ipcMain.handle('proxmox:getNextVMID', (_e, config: ProxmoxServerConfig) =>
+    proxmox.getNextVMID(config)
+  );
+  ipcMain.handle(
+    'proxmox:createVM',
+    (_e, config: ProxmoxServerConfig, node: string, params: any) =>
+      proxmox.createVM(config, node, params)
+  );
   ipcMain.handle('proxmox:getNodeSyslog', (_e, config: ProxmoxServerConfig, node: string, limit?: number) =>
     proxmox.getNodeSyslog(config, node, limit)
   );
