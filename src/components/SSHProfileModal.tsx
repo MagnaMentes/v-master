@@ -9,6 +9,7 @@ interface SSHProfileModalProps {
   initialProfile?: SSHProfile | null;
   defaultVmid?: number;
   defaultHost?: string;
+  allProfiles?: SSHProfile[];
 }
 
 export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
@@ -18,6 +19,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
   initialProfile,
   defaultVmid,
   defaultHost,
+  allProfiles = [],
 }) => {
   const [name, setName] = useState(initialProfile?.name || (defaultVmid ? `VM-${defaultVmid} SSH` : 'Нове підключення'));
   const [host, setHost] = useState(initialProfile?.host || defaultHost || '');
@@ -28,6 +30,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
   const [privateKeyPath, setPrivateKeyPath] = useState(initialProfile?.privateKeyPath || '~/.ssh/id_ed25519');
   const [privateKeyPassphrase, setPrivateKeyPassphrase] = useState(initialProfile?.privateKeyPassphrase || '');
   const [sudoPassword, setSudoPassword] = useState(initialProfile?.sudoPassword || '');
+  const [jumpHostProfileId, setJumpHostProfileId] = useState<string>(initialProfile?.jumpHostProfileId || '');
   const [showSudoPrompt, setShowSudoPrompt] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -44,6 +47,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
       setPrivateKeyPath(initialProfile?.privateKeyPath || '~/.ssh/id_ed25519');
       setPrivateKeyPassphrase(initialProfile?.privateKeyPassphrase || '');
       setSudoPassword(initialProfile?.sudoPassword || '');
+      setJumpHostProfileId(initialProfile?.jumpHostProfileId || '');
       setShowSudoPrompt(false);
       setTestResult(null);
     }
@@ -95,6 +99,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
         password,
         privateKeyPath,
         privateKeyPassphrase,
+        jumpHostProfileId: jumpHostProfileId || undefined,
         vmid: defaultVmid || initialProfile?.vmid,
       };
 
@@ -148,6 +153,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
         privateKeyPath,
         privateKeyPassphrase,
         sudoPassword: sudoPassword ? sudoPassword.trim() : undefined,
+        jumpHostProfileId: jumpHostProfileId || undefined,
         vmid: defaultVmid || initialProfile?.vmid,
       };
 
@@ -306,6 +312,33 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                 placeholder="Введіть пароль"
                 className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
               />
+            </div>
+          )}
+
+          {/* Jump Host / Bastion */}
+          {allProfiles.filter((p) => p.id !== initialProfile?.id).length > 0 && (
+            <div>
+              <label className="block font-medium text-xs mb-1 flex items-center justify-between">
+                <span>Проміжний вузол (SSH Bastion / Jump Host)</span>
+                <span className="text-[10px] text-zinc-400 font-normal">Опціонально</span>
+              </label>
+              <select
+                value={jumpHostProfileId}
+                onChange={(e) => setJumpHostProfileId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
+              >
+                <option value="">Без проміжного вузла (пряме зʼєднання)</option>
+                {allProfiles
+                  .filter((p) => p.id !== initialProfile?.id)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.username}@{p.host})
+                    </option>
+                  ))}
+              </select>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Зʼєднання проходитиме через тунель обраного Bastion-сервера.
+              </p>
             </div>
           )}
 

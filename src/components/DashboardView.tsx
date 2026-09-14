@@ -96,7 +96,7 @@ export const DashboardView: React.FC = () => {
           const vm = targetVMs[i];
           const actionText = action === 'start' ? 'Запуск' : action === 'stop' ? 'Зупинка' : 'Перезапуск';
           setBatchProgressMsg(`${actionText} ${vm.name} (${i + 1}/${targetVMs.length})...`);
-          await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action);
+          await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action, vm.type);
         }
         setTimeout(() => refreshClusterData(), 1200);
       }
@@ -117,7 +117,7 @@ export const DashboardView: React.FC = () => {
 
     setActionLoading(vm.vmid);
     try {
-      await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action);
+      await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action, vm.type);
       await refreshClusterData();
     } catch (e: any) {
       alert(`Помилка виконання дії: ${e.message}`);
@@ -130,7 +130,7 @@ export const DashboardView: React.FC = () => {
     if (!activeServer) return;
     setActionLoading(vm.vmid);
     try {
-      await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action);
+      await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action, vm.type);
       await refreshClusterData();
     } catch (e: any) {
       alert(`Помилка виконання дії: ${e.message}`);
@@ -221,7 +221,20 @@ export const DashboardView: React.FC = () => {
             {isRunning ? 'Running' : vm.status === 'paused' ? 'Paused' : 'Stopped'}
           </span>
         </td>
-        <td className="px-4 py-3 font-mono font-medium">{vm.vmid}</td>
+        <td className="px-4 py-3 font-mono font-medium">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider uppercase ${
+                vm.type === 'lxc'
+                  ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                  : 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+              }`}
+            >
+              {vm.type === 'lxc' ? 'CT' : 'VM'}
+            </span>
+            <span>{vm.vmid}</span>
+          </div>
+        </td>
         <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
           <div className="flex items-center gap-1.5">
             <span>{vm.name}</span>

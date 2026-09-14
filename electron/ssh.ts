@@ -28,6 +28,16 @@ export class SSHService {
     if (process.env.SSH_AUTH_SOCK && fs.existsSync(process.env.SSH_AUTH_SOCK)) {
       return process.env.SSH_AUTH_SOCK;
     }
+    if (process.platform === 'win32') {
+      const winPipe = '\\\\.\\pipe\\openssh-ssh-agent';
+      try {
+        if (fs.existsSync(winPipe)) {
+          return winPipe;
+        }
+      } catch {
+        // Fallback
+      }
+    }
     if (process.platform === 'darwin') {
       try {
         const sock = execSync('launchctl getenv SSH_AUTH_SOCK', { encoding: 'utf8', timeout: 1000 }).trim();

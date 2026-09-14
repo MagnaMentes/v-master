@@ -43,6 +43,9 @@ export const SFTPView: React.FC = () => {
   // File editor modal state
   const [editingFile, setEditingFile] = useState<{ path: string; name: string } | null>(null);
 
+  // Drag-and-drop upload state
+  const [isDragging, setIsDragging] = useState(false);
+
   // Initial select profile from selectedVM or first available
   useEffect(() => {
     if (selectedVM) {
@@ -127,6 +130,57 @@ export const SFTPView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (!selectedProfile) return;
+    const droppedFiles = e.dataTransfer.files;
+    if (!droppedFiles || droppedFiles.length === 0) return;
+
+    setIsLoading(true);
+    let uploadedCount = 0;
+    try {
+      for (let i = 0; i < droppedFiles.length; i++) {
+        const file = droppedFiles[i];
+        // In Electron, File objects have a 'path' property pointing to absolute local filesystem path
+        const localPath = (file as any).path;
+        if (!localPath) continue;
+
+        const fileName = file.name;
+        const remotePath = currentPath === '/' ? `/${fileName}` : `${currentPath}/${fileName}`;
+
+        const res = await window.api.sftp.upload(selectedProfile, localPath, remotePath);
+        if (res.success) {
+          uploadedCount++;
+        }
+      }
+
+      if (uploadedCount > 0) {
+        setSuccessMsg(`Успішно завантажено файлів: ${uploadedCount}`);
+        setTimeout(() => setSuccessMsg(null), 3000);
+        await loadDirectory(currentPath);
+      }
+    } catch (err: any) {
+      setError(`Помилка перетягування файлів: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
   };
 
   const handleDownloadFile = async (item: SFTPItem) => {
@@ -307,7 +361,26 @@ export const SFTPView: React.FC = () => {
       )}
 
       {/* Files List Table */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className={`flex-1 overflow-y-auto relative transition-colors ${
+          isDragging ? 'bg-blue-50/60 dark:bg-blue-950/20' : ''
+        }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="absolute inset-0 z-30 bg-blue-500/10 dark:bg-blue-500/20 border-2 border-dashed border-blue-500 rounded-xl m-2 flex flex-col items-center justify-center gap-3 backdrop-blur-2xs pointer-events-none">
+            <Upload className="w-10 h-10 text-blue-500 animate-bounce" />
+            <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
+              Скиньте файли сюди для вивантаження
+            </div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              Файли будуть завантажені у поточну директорію: {currentPath}
+            </div>
+          </div>
+        )}
+
         {!selectedProfile ? (
           <div className="p-8 text-center text-xs text-zinc-400">
             Оберіть або налаштуйте SSH профіль у вкладці Налаштування або на сторінці ВМ

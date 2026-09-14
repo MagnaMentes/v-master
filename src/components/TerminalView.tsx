@@ -28,6 +28,7 @@ export const TerminalView: React.FC = () => {
     sendSnippetToTerminal,
     vms,
     selectedVM,
+    sshProfiles,
     setActiveView,
     openTerminalForVM,
     saveSSHProfile,
@@ -390,6 +391,7 @@ export const TerminalView: React.FC = () => {
           initialProfile={editingProfile}
           defaultVmid={editingProfile.vmid}
           defaultHost={editingProfile.host}
+          allProfiles={sshProfiles}
         />
       )}
     </div>

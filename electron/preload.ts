@@ -11,6 +11,8 @@ import type {
   VMMetrics,
   VMSnapshot,
   SFTPItem,
+  ProxmoxRRDPoint,
+  ProxmoxBackup,
 } from '../src/types';
 
 const api = {
@@ -37,46 +39,69 @@ const api = {
       ipcRenderer.invoke('proxmox:getNodes', config),
     getVMs: (config: ProxmoxServerConfig, node: string): Promise<ProxmoxVM[]> =>
       ipcRenderer.invoke('proxmox:getVMs', config, node),
-    getVMMetrics: (config: ProxmoxServerConfig, node: string, vmid: number): Promise<VMMetrics> =>
-      ipcRenderer.invoke('proxmox:getVMMetrics', config, node, vmid),
+    getVMMetrics: (config: ProxmoxServerConfig, node: string, vmid: number, vmType?: 'qemu' | 'lxc'): Promise<VMMetrics> =>
+      ipcRenderer.invoke('proxmox:getVMMetrics', config, node, vmid, vmType),
+    getRRDData: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      timeframe?: 'hour' | 'day' | 'week' | 'month' | 'year',
+      vmType?: 'qemu' | 'lxc'
+    ): Promise<ProxmoxRRDPoint[]> =>
+      ipcRenderer.invoke('proxmox:getRRDData', config, node, vmid, timeframe, vmType),
     executeVMAction: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
-      action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume'
+      action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume',
+      vmType?: 'qemu' | 'lxc'
     ): Promise<{ success: boolean; taskId?: string }> =>
-      ipcRenderer.invoke('proxmox:executeVMAction', config, node, vmid, action),
-    getSnapshots: (config: ProxmoxServerConfig, node: string, vmid: number): Promise<VMSnapshot[]> =>
-      ipcRenderer.invoke('proxmox:getSnapshots', config, node, vmid),
+      ipcRenderer.invoke('proxmox:executeVMAction', config, node, vmid, action, vmType),
+    getSnapshots: (config: ProxmoxServerConfig, node: string, vmid: number, vmType?: 'qemu' | 'lxc'): Promise<VMSnapshot[]> =>
+      ipcRenderer.invoke('proxmox:getSnapshots', config, node, vmid, vmType),
+    getBackups: (config: ProxmoxServerConfig, node: string, vmid: number): Promise<ProxmoxBackup[]> =>
+      ipcRenderer.invoke('proxmox:getBackups', config, node, vmid),
+    createBackup: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      mode?: 'snapshot' | 'suspend' | 'stop',
+      compress?: 'zstd' | 'gzip' | 'lzo' | 'none'
+    ): Promise<{ success: boolean; taskId?: string }> =>
+      ipcRenderer.invoke('proxmox:createBackup', config, node, vmid, mode, compress),
     createSnapshot: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
       snapname: string,
       description?: string,
-      vmstate?: boolean
+      vmstate?: boolean,
+      vmType?: 'qemu' | 'lxc'
     ): Promise<{ success: boolean; taskId?: string }> =>
-      ipcRenderer.invoke('proxmox:createSnapshot', config, node, vmid, snapname, description, vmstate),
+      ipcRenderer.invoke('proxmox:createSnapshot', config, node, vmid, snapname, description, vmstate, vmType),
     rollbackSnapshot: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
-      snapname: string
+      snapname: string,
+      vmType?: 'qemu' | 'lxc'
     ): Promise<{ success: boolean; taskId?: string }> =>
-      ipcRenderer.invoke('proxmox:rollbackSnapshot', config, node, vmid, snapname),
+      ipcRenderer.invoke('proxmox:rollbackSnapshot', config, node, vmid, snapname, vmType),
     deleteSnapshot: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
-      snapname: string
+      snapname: string,
+      vmType?: 'qemu' | 'lxc'
     ): Promise<{ success: boolean; taskId?: string }> =>
-      ipcRenderer.invoke('proxmox:deleteSnapshot', config, node, vmid, snapname),
+      ipcRenderer.invoke('proxmox:deleteSnapshot', config, node, vmid, snapname, vmType),
     getTermproxyTicket: (
       config: ProxmoxServerConfig,
       node: string,
-      vmid?: number
+      vmid?: number,
+      vmType?: 'qemu' | 'lxc'
     ): Promise<{ ticket: string; port: number; user: string }> =>
-      ipcRenderer.invoke('proxmox:getTermproxyTicket', config, node, vmid),
+      ipcRenderer.invoke('proxmox:getTermproxyTicket', config, node, vmid, vmType),
     getNodeStatus: (config: ProxmoxServerConfig, node: string): Promise<any> =>
       ipcRenderer.invoke('proxmox:getNodeStatus', config, node),
     getNodeServices: (config: ProxmoxServerConfig, node: string): Promise<any[]> =>
@@ -182,6 +207,12 @@ const api = {
       unit?: string
     ): Promise<{ success: boolean; logs?: string; error?: string }> =>
       ipcRenderer.invoke('diagnostics:getSystemLogs', profile, filter, lines, unit),
+    getDockerContainers: (profile: SSHProfile): Promise<{ success: boolean; containers?: any[]; isInstalled: boolean; error?: string }> =>
+      ipcRenderer.invoke('diagnostics:getDockerContainers', profile),
+    restartDockerContainer: (profile: SSHProfile, containerId: string, sudoPassword?: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('diagnostics:restartDockerContainer', profile, containerId, sudoPassword),
+    getDockerLogs: (profile: SSHProfile, containerId: string, lines?: number): Promise<{ success: boolean; logs?: string; error?: string }> =>
+      ipcRenderer.invoke('diagnostics:getDockerLogs', profile, containerId, lines),
   },
 
   // App & Theme

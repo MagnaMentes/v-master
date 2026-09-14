@@ -22,11 +22,13 @@ import {
   X,
   Flame,
   Download,
+  LineChart,
+  Archive,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { SSHProfileModal } from './SSHProfileModal';
 import { ResourceDiagnosticsModal } from './ResourceDiagnosticsModal';
-import type { VMMetrics, VMSnapshot, SSHProfile } from '../types';
+import type { VMMetrics, VMSnapshot, SSHProfile, ProxmoxRRDPoint, ProxmoxBackup } from '../types';
 
 export const VMDetailView: React.FC = () => {
   const {
@@ -52,6 +54,18 @@ export const VMDetailView: React.FC = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isSSHModalOpen, setIsSSHModalOpen] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+
+  // RRD Historical Metrics
+  const [rrdData, setRrdData] = useState<ProxmoxRRDPoint[]>([]);
+  const [rrdTimeframe, setRrdTimeframe] = useState<'hour' | 'day' | 'week'>('hour');
+  const [isRRDLoading, setIsRRDLoading] = useState<boolean>(false);
+
+  // Backups state
+  const [backups, setBackups] = useState<ProxmoxBackup[]>([]);
+  const [isBackupsLoading, setIsBackupsLoading] = useState<boolean>(true);
+  const [isCreateBackupOpen, setIsCreateBackupOpen] = useState(false);
+  const [backupMode, setBackupMode] = useState<'snapshot' | 'suspend' | 'stop'>('snapshot');
+  const [backupCompress, setBackupCompress] = useState<'zstd' | 'gzip' | 'none'>('zstd');
 
   // New Snapshot modal state
   const [isCreateSnapOpen, setIsCreateSnapOpen] = useState(false);
@@ -398,14 +412,14 @@ export const VMDetailView: React.FC = () => {
       return;
     }
     try {
-      const data = await window.api.proxmox.getVMMetrics(activeServer, selectedVM.node, selectedVM.vmid);
+      const data = await window.api.proxmox.getVMMetrics(activeServer, selectedVM.node, selectedVM.vmid, selectedVM.type);
       setMetrics(data);
     } catch {
       // Ignored
     } finally {
       setIsMetricsLoading(false);
     }
-  }, [activeServer, selectedVM?.node, selectedVM?.vmid, selectedVM?.status]);
+  }, [activeServer, selectedVM?.node, selectedVM?.vmid, selectedVM?.status, selectedVM?.type]);
 
   const loadSnapshots = useCallback(async () => {
     if (!activeServer || !selectedVM) {
@@ -414,12 +428,50 @@ export const VMDetailView: React.FC = () => {
     }
     setIsSnapshotLoading(true);
     try {
-      const snaps = await window.api.proxmox.getSnapshots(activeServer, selectedVM.node, selectedVM.vmid);
+      const snaps = await window.api.proxmox.getSnapshots(activeServer, selectedVM.node, selectedVM.vmid, selectedVM.type);
       setSnapshots(snaps);
     } catch {
       // Ignored
     } finally {
       setIsSnapshotLoading(false);
+    }
+  }, [activeServer, selectedVM?.node, selectedVM?.vmid, selectedVM?.type]);
+
+  const loadRRDData = useCallback(async () => {
+    if (!activeServer || !selectedVM) {
+      setRrdData([]);
+      return;
+    }
+    setIsRRDLoading(true);
+    try {
+      const points = await window.api.proxmox.getRRDData(
+        activeServer,
+        selectedVM.node,
+        selectedVM.vmid,
+        rrdTimeframe,
+        selectedVM.type
+      );
+      setRrdData(points);
+    } catch {
+      setRrdData([]);
+    } finally {
+      setIsRRDLoading(false);
+    }
+  }, [activeServer, selectedVM?.node, selectedVM?.vmid, selectedVM?.type, rrdTimeframe]);
+
+  const loadBackups = useCallback(async () => {
+    if (!activeServer || !selectedVM) {
+      setIsBackupsLoading(false);
+      return;
+    }
+    setIsBackupsLoading(true);
+    try {
+      const list = await window.api.proxmox.getBackups(activeServer, selectedVM.node, selectedVM.vmid);
+      setBackups(list);
+    } catch {
+      setBackups([]);
+    } finally {
+      setIsBackupsLoading(false);
     }
   }, [activeServer, selectedVM?.node, selectedVM?.vmid]);
 
@@ -428,15 +480,20 @@ export const VMDetailView: React.FC = () => {
     setIsDiagnosticsOpen(false);
     setIsSSHModalOpen(false);
     setIsCreateSnapOpen(false);
+    setIsCreateBackupOpen(false);
     setMetrics(null);
     setLiveOSMem(null);
     setSnapshots([]);
+    setBackups([]);
     setIsMetricsLoading(selectedVM?.status === 'running');
     setIsSnapshotLoading(true);
+    setIsBackupsLoading(true);
     if (selectedVM) {
       loadSnapshots();
+      loadRRDData();
+      loadBackups();
     }
-  }, [selectedVM?.vmid, selectedVM?.status, loadSnapshots]);
+  }, [selectedVM?.vmid, selectedVM?.status, loadSnapshots, loadRRDData, loadBackups]);
 
   // Poll metrics every 3 seconds for active VM
   useEffect(() => {
@@ -541,7 +598,7 @@ export const VMDetailView: React.FC = () => {
     const perform = async () => {
       setIsActionLoading(true);
       try {
-        await window.api.proxmox.executeVMAction(activeServer, selectedVM.node, selectedVM.vmid, action);
+        await window.api.proxmox.executeVMAction(activeServer, selectedVM.node, selectedVM.vmid, action, selectedVM.type);
         await refreshClusterData();
       } catch (err: any) {
         alert(`Помилка: ${err.message}`);
@@ -594,7 +651,8 @@ export const VMDetailView: React.FC = () => {
         selectedVM.vmid,
         snapName,
         snapDesc,
-        snapIncludeRam
+        snapIncludeRam,
+        selectedVM.type
       );
       setIsCreateSnapOpen(false);
       setSnapName('');
@@ -616,7 +674,7 @@ export const VMDetailView: React.FC = () => {
       action: async () => {
         setIsActionLoading(true);
         try {
-          await window.api.proxmox.rollbackSnapshot(activeServer, selectedVM.node, selectedVM.vmid, snap.name);
+          await window.api.proxmox.rollbackSnapshot(activeServer, selectedVM.node, selectedVM.vmid, snap.name, selectedVM.type);
           await refreshClusterData();
           await loadSnapshots();
         } catch (e: any) {
@@ -637,7 +695,7 @@ export const VMDetailView: React.FC = () => {
       action: async () => {
         setIsActionLoading(true);
         try {
-          await window.api.proxmox.deleteSnapshot(activeServer, selectedVM.node, selectedVM.vmid, snap.name);
+          await window.api.proxmox.deleteSnapshot(activeServer, selectedVM.node, selectedVM.vmid, snap.name, selectedVM.type);
           await loadSnapshots();
         } catch (e: any) {
           alert(`Помилка видалення: ${e.message}`);
@@ -646,6 +704,28 @@ export const VMDetailView: React.FC = () => {
         }
       },
     });
+  };
+
+  const handleCreateBackup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeServer || !selectedVM) return;
+    setIsActionLoading(true);
+    try {
+      await window.api.proxmox.createBackup(
+        activeServer,
+        selectedVM.node,
+        selectedVM.vmid,
+        backupMode,
+        backupCompress
+      );
+      setIsCreateBackupOpen(false);
+      alert('Завдання створення резервної копії (VZDump) успішно запущено у Proxmox.');
+      setTimeout(() => loadBackups(), 2000);
+    } catch (e: any) {
+      alert(`Помилка створення бекапу: ${e.message}`);
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   const formatBytes = (bytes: number) => {
@@ -765,8 +845,17 @@ export const VMDetailView: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold tracking-tight">{selectedVM.name}</h1>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded tracking-wider uppercase ${
+                selectedVM.type === 'lxc'
+                  ? 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                  : 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+              }`}
+            >
+              {selectedVM.type === 'lxc' ? 'LXC Контейнер' : 'QEMU ВМ'}
+            </span>
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold border border-zinc-200 dark:border-zinc-700">
-              VMID: {selectedVM.vmid}
+              ID: {selectedVM.vmid}
             </span>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -1132,6 +1221,128 @@ export const VMDetailView: React.FC = () => {
         )}
       </div>
 
+      {/* Historical Performance Charts (RRD) */}
+      <div className="rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs overflow-hidden">
+        <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <LineChart className="w-4 h-4 text-blue-500" />
+            <h2 className="text-sm font-semibold">Історія навантаження (RRD)</h2>
+          </div>
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg text-xs">
+            {(['hour', 'day', 'week'] as const).map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setRrdTimeframe(tf)}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                  rrdTimeframe === tf
+                    ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-2xs'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                }`}
+              >
+                {tf === 'hour' ? '1 година' : tf === 'day' ? '24 години' : '7 днів'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5">
+          {isRRDLoading ? (
+            <div className="py-12 flex items-center justify-center gap-2 text-zinc-400 text-xs">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Завантаження історичних метрик...</span>
+            </div>
+          ) : rrdData.length === 0 ? (
+            <div className="py-8 text-center text-zinc-400 dark:text-zinc-500 text-xs">
+              Історичні дані для цієї сутності наразі недоступні
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* CPU Chart */}
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800">
+                <div className="flex items-center justify-between mb-3 text-xs">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                    Навантаження CPU (%)
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Пік: {(Math.max(...rrdData.map((d) => (d.cpu || 0) * 100)) || 0).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-28 w-full">
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    {(() => {
+                      const valid = rrdData.filter((d) => d.cpu !== undefined);
+                      if (valid.length < 2) return null;
+                      const maxVal = Math.max(...valid.map((d) => (d.cpu || 0) * 100), 10);
+                      const points = valid.map((d, idx) => {
+                        const x = (idx / (valid.length - 1)) * 100;
+                        const y = 100 - (((d.cpu || 0) * 100) / maxVal) * 90;
+                        return `${x},${y}`;
+                      });
+                      const linePath = `M ${points.join(' L ')}`;
+                      const areaPath = `${linePath} L 100,100 L 0,100 Z`;
+                      return (
+                        <>
+                          <path d={areaPath} fill="url(#cpuGrad)" />
+                          <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </div>
+              </div>
+
+              {/* RAM Chart */}
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800">
+                <div className="flex items-center justify-between mb-3 text-xs">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    Використання RAM (MB / GB)
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Макс: {formatBytes(Math.max(...rrdData.map((d) => d.mem || 0)) || 0)}
+                  </span>
+                </div>
+                <div className="h-28 w-full">
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="ramGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    {(() => {
+                      const valid = rrdData.filter((d) => d.mem !== undefined);
+                      if (valid.length < 2) return null;
+                      const maxVal = Math.max(...valid.map((d) => d.maxmem || d.mem || 1), 1);
+                      const points = valid.map((d, idx) => {
+                        const x = (idx / (valid.length - 1)) * 100;
+                        const y = 100 - (((d.mem || 0) / maxVal) * 90);
+                        return `${x},${y}`;
+                      });
+                      const linePath = `M ${points.join(' L ')}`;
+                      const areaPath = `${linePath} L 100,100 L 0,100 Z`;
+                      return (
+                        <>
+                          <path d={areaPath} fill="url(#ramGrad)" />
+                          <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" />
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Snapshots Management Section */}
       <div className="rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs overflow-hidden">
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
@@ -1220,6 +1431,79 @@ export const VMDetailView: React.FC = () => {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Backups Management Section (VZDump) */}
+      <div className="rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs overflow-hidden">
+        <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Archive className="w-4 h-4 text-emerald-500" />
+            <h2 className="text-sm font-semibold">Резервні копії (Backups)</h2>
+            <span className="text-xs text-zinc-400">({backups.length})</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => loadBackups()}
+              title="Оновити список бекапів"
+              className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isBackupsLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => setIsCreateBackupOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Створити бекап</span>
+            </button>
+          </div>
+        </div>
+
+        {isBackupsLoading ? (
+          <div className="p-8 flex items-center justify-center gap-2 text-zinc-400 text-xs">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Пошук резервних копій у сховищах ноди...</span>
+          </div>
+        ) : backups.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 text-xs">
+            Для цієї сутності ще не створено резервних копій у сховищах Proxmox.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Том (VolID)</th>
+                  <th className="px-4 py-2.5 font-medium">Формат</th>
+                  <th className="px-4 py-2.5 font-medium">Розмір</th>
+                  <th className="px-4 py-2.5 font-medium">Дата створення</th>
+                  <th className="px-4 py-2.5 font-medium">Примітки</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {backups.map((b) => (
+                  <tr key={b.volid} className="hover:bg-zinc-50 dark:hover:bg-zinc-700/30">
+                    <td className="px-4 py-3 font-medium font-mono text-zinc-900 dark:text-zinc-100 max-w-xs truncate" title={b.volid}>
+                      {b.volid}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 uppercase font-mono">
+                      {b.format || 'vma'}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300 font-medium">
+                      {formatBytes(b.size)}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {b.ctime ? new Date(b.ctime * 1000).toLocaleString('uk-UA') : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400 italic">
+                      {b.notes || '—'}
                     </td>
                   </tr>
                 ))}
@@ -1625,6 +1909,7 @@ export const VMDetailView: React.FC = () => {
         initialProfile={existingSSHProfile}
         defaultVmid={selectedVM.vmid}
         defaultHost={primaryIp}
+        allProfiles={sshProfiles}
       />
 
       {/* Sudo Password Prompt Modal */}
@@ -1681,6 +1966,75 @@ export const VMDetailView: React.FC = () => {
                   className="px-4 py-1.5 rounded-lg text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50"
                 >
                   Підтвердити
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Backup Modal */}
+      {isCreateBackupOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#252528] rounded-2xl border border-zinc-200 dark:border-zinc-700 max-w-md w-full p-6 shadow-2xl modal-animate">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
+                <Archive className="w-4 h-4" />
+                <span>Створення бекапу (VZDump)</span>
+              </div>
+              <button
+                onClick={() => setIsCreateBackupOpen(false)}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBackup} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Режим створення (Mode)
+                </label>
+                <select
+                  value={backupMode}
+                  onChange={(e: any) => setBackupMode(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="snapshot">Snapshot (онлайн, без зупинки роботи)</option>
+                  <option value="suspend">Suspend (коротка пауза пам'яті)</option>
+                  <option value="stop">Stop (повна зупинка на час створення)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Алгоритм стиснення (Compression)
+                </label>
+                <select
+                  value={backupCompress}
+                  onChange={(e: any) => setBackupCompress(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
+                >
+                  <option value="zstd">ZSTD (швидкий і ефективний, рекомендовано)</option>
+                  <option value="gzip">GZIP (універсальний)</option>
+                  <option value="none">Без стиснення (найшвидший запис)</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateBackupOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  disabled={isActionLoading}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors shadow-xs disabled:opacity-50"
+                >
+                  {isActionLoading ? 'Запуск...' : 'Запустити бекап'}
                 </button>
               </div>
             </form>

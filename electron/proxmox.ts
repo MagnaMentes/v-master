@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
-import type { ProxmoxServerConfig, ProxmoxNode, ProxmoxNodeService, ProxmoxAPTUpdate, ProxmoxVM, VMSnapshot, VMMetrics } from '../src/types';
+import type { ProxmoxServerConfig, ProxmoxNode, ProxmoxNodeService, ProxmoxAPTUpdate, ProxmoxVM, VMSnapshot, VMMetrics, ProxmoxRRDPoint, ProxmoxBackup } from '../src/types';
 
 interface AuthTicket {
   ticket: string;
@@ -116,11 +116,25 @@ export class ProxmoxService {
     const headers = await this.getAuthHeaders(config);
 
     // Fetch QEMU VMs
-    const qemuRes = await client.get(`/nodes/${node}/qemu`, { headers });
-    const qemuVMs = qemuRes.data?.data || [];
+    let qemuVMs: any[] = [];
+    try {
+      const qemuRes = await client.get(`/nodes/${node}/qemu`, { headers });
+      qemuVMs = qemuRes.data?.data || [];
+    } catch (e) {
+      console.warn('Failed to fetch QEMU VMs:', e);
+    }
 
-    // Also attempt to get IP addresses via QEMU guest agent if running
-    const vms: ProxmoxVM[] = await Promise.all(
+    // Fetch LXC containers
+    let lxcCTs: any[] = [];
+    try {
+      const lxcRes = await client.get(`/nodes/${node}/lxc`, { headers });
+      lxcCTs = lxcRes.data?.data || [];
+    } catch (e) {
+      console.warn('Failed to fetch LXC containers:', e);
+    }
+
+    // Process QEMU VMs
+    const parsedQemu: ProxmoxVM[] = await Promise.all(
       qemuVMs.map(async (v: any) => {
         let ipAddresses: string[] = [];
         if (v.status === 'running') {
@@ -140,7 +154,7 @@ export class ProxmoxService {
               }
             }
           } catch {
-            // Guest agent not running or no permissions, safe to ignore
+            // Guest agent not running or no permissions
           }
         }
 
@@ -149,7 +163,7 @@ export class ProxmoxService {
           name: v.name || `VM-${v.vmid}`,
           status: v.status as 'running' | 'stopped' | 'paused',
           node,
-          type: 'qemu',
+          type: 'qemu' as const,
           cpu: v.cpu,
           cpus: v.cpus,
           mem: v.mem,
@@ -166,13 +180,56 @@ export class ProxmoxService {
       })
     );
 
-    return vms;
+    // Process LXC containers
+    const parsedLxc: ProxmoxVM[] = await Promise.all(
+      lxcCTs.map(async (c: any) => {
+        let ipAddresses: string[] = [];
+        if (c.status === 'running') {
+          try {
+            const ifRes = await client.get(`/nodes/${node}/lxc/${c.vmid}/interfaces`, {
+              headers,
+              timeout: 2000,
+            });
+            const ifaces = ifRes.data?.data || [];
+            for (const iface of ifaces) {
+              if (iface.inet && !iface.inet.startsWith('127.')) {
+                const cleanIp = iface.inet.split('/')[0];
+                if (cleanIp) ipAddresses.push(cleanIp);
+              }
+            }
+          } catch {
+            // Interfaces endpoint not accessible or permission denied
+          }
+        }
+
+        return {
+          vmid: c.vmid,
+          name: c.name || `CT-${c.vmid}`,
+          status: c.status as 'running' | 'stopped' | 'paused',
+          node,
+          type: 'lxc' as const,
+          cpu: c.cpu,
+          cpus: c.cpus,
+          mem: c.mem,
+          maxmem: c.maxmem,
+          disk: c.disk,
+          maxdisk: c.maxdisk,
+          uptime: c.uptime,
+          netin: c.netin,
+          netout: c.netout,
+          ipAddresses,
+          freemem: c.freemem,
+        };
+      })
+    );
+
+    return [...parsedQemu, ...parsedLxc];
   }
 
-  public async getVMMetrics(config: ProxmoxServerConfig, node: string, vmid: number): Promise<VMMetrics> {
+  public async getVMMetrics(config: ProxmoxServerConfig, node: string, vmid: number, vmType: 'qemu' | 'lxc' = 'qemu'): Promise<VMMetrics> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
-    const res = await client.get(`/nodes/${node}/qemu/${vmid}/status/current`, { headers });
+    const res = await client.get(`/nodes/${node}/${vmType}/${vmid}/status/current`, { headers });
     const d = res.data?.data || {};
 
     return {
@@ -190,25 +247,117 @@ export class ProxmoxService {
     };
   }
 
+  public async getRRDData(
+    config: ProxmoxServerConfig,
+    node: string,
+    vmid: number,
+    timeframe: 'hour' | 'day' | 'week' | 'month' | 'year' = 'hour',
+    vmType: 'qemu' | 'lxc' = 'qemu'
+  ): Promise<ProxmoxRRDPoint[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    try {
+      const res = await client.get(`/nodes/${node}/${vmType}/${vmid}/rrddata`, {
+        headers,
+        params: { timeframe, cf: 'AVERAGE' },
+      });
+      return (res.data?.data || []).map((p: any) => ({
+        time: p.time,
+        cpu: p.cpu !== undefined ? p.cpu : 0,
+        mem: p.mem !== undefined ? p.mem : 0,
+        maxmem: p.maxmem !== undefined ? p.maxmem : 0,
+        disk: p.disk !== undefined ? p.disk : 0,
+        maxdisk: p.maxdisk !== undefined ? p.maxdisk : 0,
+        netin: p.netin !== undefined ? p.netin : 0,
+        netout: p.netout !== undefined ? p.netout : 0,
+      }));
+    } catch (err) {
+      console.warn(`Failed to fetch RRD data for ${vmType}/${vmid}:`, err);
+      return [];
+    }
+  }
+
   public async executeVMAction(
     config: ProxmoxServerConfig,
     node: string,
     vmid: number,
-    action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume'
+    action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume',
+    vmType: 'qemu' | 'lxc' = 'qemu'
   ): Promise<{ success: boolean; taskId?: string }> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
-    const res = await client.post(`/nodes/${node}/qemu/${vmid}/status/${action}`, null, { headers });
+    const res = await client.post(`/nodes/${node}/${vmType}/${vmid}/status/${action}`, null, { headers });
     return {
       success: true,
       taskId: res.data?.data,
     };
   }
 
-  public async getSnapshots(config: ProxmoxServerConfig, node: string, vmid: number): Promise<VMSnapshot[]> {
+  public async getBackups(config: ProxmoxServerConfig, node: string, vmid: number): Promise<ProxmoxBackup[]> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
-    const res = await client.get(`/nodes/${node}/qemu/${vmid}/snapshot`, { headers });
+    try {
+      // 1. Get storages supporting backups on this node
+      const storagesRes = await client.get(`/nodes/${node}/storage`, { headers });
+      const storages = storagesRes.data?.data || [];
+      const backupStorages = storages.filter((s: any) => s.content && s.content.includes('backup'));
+
+      const backups: ProxmoxBackup[] = [];
+      await Promise.all(
+        backupStorages.map(async (st: any) => {
+          try {
+            const contentRes = await client.get(`/nodes/${node}/storage/${st.storage}/content`, {
+              headers,
+              params: { content: 'backup', vmid },
+            });
+            const items = contentRes.data?.data || [];
+            for (const item of items) {
+              if (Number(item.vmid) === Number(vmid)) {
+                backups.push({
+                  volid: item.volid,
+                  size: item.size || 0,
+                  ctime: item.ctime || 0,
+                  format: item.format || '',
+                  notes: item.notes || '',
+                });
+              }
+            }
+          } catch {
+            // Storage content might fail if offline
+          }
+        })
+      );
+
+      // Sort newest first
+      return backups.sort((a, b) => b.ctime - a.ctime);
+    } catch (err) {
+      console.warn(`Failed to fetch backups for VMID ${vmid}:`, err);
+      return [];
+    }
+  }
+
+  public async createBackup(
+    config: ProxmoxServerConfig,
+    node: string,
+    vmid: number,
+    mode: 'snapshot' | 'suspend' | 'stop' = 'snapshot',
+    compress: 'zstd' | 'gzip' | 'lzo' | 'none' = 'zstd'
+  ): Promise<{ success: boolean; taskId?: string }> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const payload: any = {
+      vmid,
+      mode,
+      compress,
+    };
+    const res = await client.post(`/nodes/${node}/vzdump`, payload, { headers });
+    return { success: true, taskId: res.data?.data };
+  }
+
+  public async getSnapshots(config: ProxmoxServerConfig, node: string, vmid: number, vmType: 'qemu' | 'lxc' = 'qemu'): Promise<VMSnapshot[]> {
+    const client = this.getClient(config);
+    const headers = await this.getAuthHeaders(config);
+    const res = await client.get(`/nodes/${node}/${vmType}/${vmid}/snapshot`, { headers });
     return (res.data?.data || [])
       .filter((s: any) => s.name !== 'current')
       .map((s: any) => ({
@@ -226,13 +375,18 @@ export class ProxmoxService {
     vmid: number,
     snapname: string,
     description?: string,
-    vmstate?: boolean
+    vmstate?: boolean,
+    vmType: 'qemu' | 'lxc' = 'qemu'
   ): Promise<{ success: boolean; taskId?: string }> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
+    const payload: any = { snapname, description };
+    if (vmType === 'qemu') {
+      payload.vmstate = vmstate ? 1 : 0;
+    }
     const res = await client.post(
-      `/nodes/${node}/qemu/${vmid}/snapshot`,
-      { snapname, description, vmstate: vmstate ? 1 : 0 },
+      `/nodes/${node}/${vmType}/${vmid}/snapshot`,
+      payload,
       { headers }
     );
     return { success: true, taskId: res.data?.data };
@@ -242,11 +396,12 @@ export class ProxmoxService {
     config: ProxmoxServerConfig,
     node: string,
     vmid: number,
-    snapname: string
+    snapname: string,
+    vmType: 'qemu' | 'lxc' = 'qemu'
   ): Promise<{ success: boolean; taskId?: string }> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
-    const res = await client.post(`/nodes/${node}/qemu/${vmid}/snapshot/${snapname}/rollback`, null, { headers });
+    const res = await client.post(`/nodes/${node}/${vmType}/${vmid}/snapshot/${snapname}/rollback`, null, { headers });
     return { success: true, taskId: res.data?.data };
   }
 
@@ -254,23 +409,25 @@ export class ProxmoxService {
     config: ProxmoxServerConfig,
     node: string,
     vmid: number,
-    snapname: string
+    snapname: string,
+    vmType: 'qemu' | 'lxc' = 'qemu'
   ): Promise<{ success: boolean; taskId?: string }> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
-    const res = await client.delete(`/nodes/${node}/qemu/${vmid}/snapshot/${snapname}`, { headers });
+    const res = await client.delete(`/nodes/${node}/${vmType}/${vmid}/snapshot/${snapname}`, { headers });
     return { success: true, taskId: res.data?.data };
   }
 
   public async getTermproxyTicket(
     config: ProxmoxServerConfig,
     node: string,
-    vmid?: number
+    vmid?: number,
+    vmType: 'qemu' | 'lxc' = 'qemu'
   ): Promise<{ ticket: string; port: number; user: string }> {
     const client = this.getClient(config);
     const headers = await this.getAuthHeaders(config);
     const endpoint = vmid
-      ? `/nodes/${node}/qemu/${vmid}/termproxy`
+      ? `/nodes/${node}/${vmType}/${vmid}/termproxy`
       : `/nodes/${node}/termproxy`;
 
     const res = await client.post(endpoint, null, { headers });

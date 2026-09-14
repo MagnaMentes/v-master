@@ -30,13 +30,15 @@ const updates = new UpdateService(ssh);
 const diagnostics = new DiagnosticsService(ssh);
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
+
   win = new BrowserWindow({
     width: 1300,
     height: 850,
     minWidth: 1000,
     minHeight: 650,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    ...(isMac ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
     icon: path.join(__dirname, '../public/icon.png'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1E1E1E' : '#F6F6F6',
     webPreferences: {
@@ -173,30 +175,43 @@ function registerIpcHandlers() {
   ipcMain.handle('proxmox:testConnection', (_e, config: ProxmoxServerConfig) => proxmox.testConnection(config));
   ipcMain.handle('proxmox:getNodes', (_e, config: ProxmoxServerConfig) => proxmox.getNodes(config));
   ipcMain.handle('proxmox:getVMs', (_e, config: ProxmoxServerConfig, node: string) => proxmox.getVMs(config, node));
-  ipcMain.handle('proxmox:getVMMetrics', (_e, config: ProxmoxServerConfig, node: string, vmid: number) =>
-    proxmox.getVMMetrics(config, node, vmid)
+  ipcMain.handle('proxmox:getVMMetrics', (_e, config: ProxmoxServerConfig, node: string, vmid: number, vmType?: 'qemu' | 'lxc') =>
+    proxmox.getVMMetrics(config, node, vmid, vmType)
+  );
+  ipcMain.handle(
+    'proxmox:getRRDData',
+    (_e, config: ProxmoxServerConfig, node: string, vmid: number, timeframe?: any, vmType?: 'qemu' | 'lxc') =>
+      proxmox.getRRDData(config, node, vmid, timeframe, vmType)
   );
   ipcMain.handle(
     'proxmox:executeVMAction',
-    (_e, config: ProxmoxServerConfig, node: string, vmid: number, action: any) =>
-      proxmox.executeVMAction(config, node, vmid, action)
+    (_e, config: ProxmoxServerConfig, node: string, vmid: number, action: any, vmType?: 'qemu' | 'lxc') =>
+      proxmox.executeVMAction(config, node, vmid, action, vmType)
   );
-  ipcMain.handle('proxmox:getSnapshots', (_e, config: ProxmoxServerConfig, node: string, vmid: number) =>
-    proxmox.getSnapshots(config, node, vmid)
+  ipcMain.handle('proxmox:getSnapshots', (_e, config: ProxmoxServerConfig, node: string, vmid: number, vmType?: 'qemu' | 'lxc') =>
+    proxmox.getSnapshots(config, node, vmid, vmType)
+  );
+  ipcMain.handle('proxmox:getBackups', (_e, config: ProxmoxServerConfig, node: string, vmid: number) =>
+    proxmox.getBackups(config, node, vmid)
+  );
+  ipcMain.handle(
+    'proxmox:createBackup',
+    (_e, config: ProxmoxServerConfig, node: string, vmid: number, mode?: any, compress?: any) =>
+      proxmox.createBackup(config, node, vmid, mode, compress)
   );
   ipcMain.handle(
     'proxmox:createSnapshot',
-    (_e, config: ProxmoxServerConfig, node: string, vmid: number, name: string, desc?: string, vmstate?: boolean) =>
-      proxmox.createSnapshot(config, node, vmid, name, desc, vmstate)
+    (_e, config: ProxmoxServerConfig, node: string, vmid: number, name: string, desc?: string, vmstate?: boolean, vmType?: 'qemu' | 'lxc') =>
+      proxmox.createSnapshot(config, node, vmid, name, desc, vmstate, vmType)
   );
-  ipcMain.handle('proxmox:rollbackSnapshot', (_e, config: ProxmoxServerConfig, node: string, vmid: number, name: string) =>
-    proxmox.rollbackSnapshot(config, node, vmid, name)
+  ipcMain.handle('proxmox:rollbackSnapshot', (_e, config: ProxmoxServerConfig, node: string, vmid: number, name: string, vmType?: 'qemu' | 'lxc') =>
+    proxmox.rollbackSnapshot(config, node, vmid, name, vmType)
   );
-  ipcMain.handle('proxmox:deleteSnapshot', (_e, config: ProxmoxServerConfig, node: string, vmid: number, name: string) =>
-    proxmox.deleteSnapshot(config, node, vmid, name)
+  ipcMain.handle('proxmox:deleteSnapshot', (_e, config: ProxmoxServerConfig, node: string, vmid: number, name: string, vmType?: 'qemu' | 'lxc') =>
+    proxmox.deleteSnapshot(config, node, vmid, name, vmType)
   );
-  ipcMain.handle('proxmox:getTermproxyTicket', (_e, config: ProxmoxServerConfig, node: string, vmid?: number) =>
-    proxmox.getTermproxyTicket(config, node, vmid)
+  ipcMain.handle('proxmox:getTermproxyTicket', (_e, config: ProxmoxServerConfig, node: string, vmid?: number, vmType?: 'qemu' | 'lxc') =>
+    proxmox.getTermproxyTicket(config, node, vmid, vmType)
   );
   ipcMain.handle('proxmox:getNodeStatus', (_e, config: ProxmoxServerConfig, node: string) =>
     proxmox.getNodeStatus(config, node)
@@ -301,6 +316,19 @@ function registerIpcHandlers() {
       lines?: number,
       unit?: string
     ) => diagnostics.getSystemLogs(profile, filter, lines, unit)
+  );
+  ipcMain.handle('diagnostics:getDockerContainers', (_e, profile: SSHProfile) =>
+    diagnostics.getDockerContainers(profile)
+  );
+  ipcMain.handle(
+    'diagnostics:restartDockerContainer',
+    (_e, profile: SSHProfile, containerId: string, sudoPassword?: string) =>
+      diagnostics.restartDockerContainer(profile, containerId, sudoPassword)
+  );
+  ipcMain.handle(
+    'diagnostics:getDockerLogs',
+    (_e, profile: SSHProfile, containerId: string, lines?: number) =>
+      diagnostics.getDockerLogs(profile, containerId, lines)
   );
 
   // Dialogs

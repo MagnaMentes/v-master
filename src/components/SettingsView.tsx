@@ -362,6 +362,7 @@ export const SettingsView: React.FC = () => {
         onClose={() => setIsSSHModalOpen(false)}
         onSave={saveSSHProfile}
         initialProfile={editingSSHProfile}
+        allProfiles={sshProfiles}
       />
     </div>
   );

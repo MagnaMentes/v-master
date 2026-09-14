@@ -16,8 +16,9 @@ import {
   WifiOff,
   Key,
   FileText,
+  Container,
 } from 'lucide-react';
-import type { ProxmoxVM, SSHProfile, VMDiagnosticsData } from '../types';
+import type { ProxmoxVM, SSHProfile, VMDiagnosticsData, DockerContainer } from '../types';
 import { useApp } from '../contexts/AppContext';
 
 interface ResourceDiagnosticsModalProps {
@@ -77,7 +78,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'mem' | 'cpu' | 'pid'>('mem');
-  const [activeTab, setActiveTab] = useState<'processes' | 'disks' | 'logs'>('processes');
+  const [activeTab, setActiveTab] = useState<'processes' | 'disks' | 'logs' | 'docker'>('processes');
   const [actingPid, setActingPid] = useState<number | null>(null);
   const [isDroppingCache, setIsDroppingCache] = useState(false);
   const [sudoPass, setSudoPass] = useState<string>(sshProfile?.sudoPassword || sshProfile?.password || '');
@@ -93,6 +94,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   const [logFilter, setLogFilter] = useState<'all' | 'errors' | 'warnings'>('all');
   const [logUnit, setLogUnit] = useState<string>('');
   const [logSearch, setLogSearch] = useState<string>('');
+
+  // Docker state
+  const [dockerContainers, setDockerContainers] = useState<DockerContainer[]>([]);
+  const [isDockerInstalled, setIsDockerInstalled] = useState<boolean>(true);
+  const [isDockerLoading, setIsDockerLoading] = useState<boolean>(false);
+  const [actingContainerId, setActingContainerId] = useState<string | null>(null);
+  const [selectedContainerLogs, setSelectedContainerLogs] = useState<{ id: string; name: string; logs: string } | null>(null);
 
   const primaryIp = vm.ipAddresses && vm.ipAddresses.length > 0 ? vm.ipAddresses[0] : undefined;
   const effectiveProfile = useMemo(() => {
@@ -193,6 +201,67 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
     },
     [effectiveProfile, logFilter, logUnit]
   );
+
+  const fetchDockerContainers = useCallback(async () => {
+    if (!effectiveProfile || !effectiveProfile.host) return;
+    setIsDockerLoading(true);
+    try {
+      if (window.api?.diagnostics?.getDockerContainers) {
+        const res = await window.api.diagnostics.getDockerContainers(effectiveProfile);
+        if (res.success) {
+          setIsDockerInstalled(res.isInstalled);
+          setDockerContainers(res.containers || []);
+        }
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsDockerLoading(false);
+    }
+  }, [effectiveProfile]);
+
+  const handleRestartContainer = async (containerId: string) => {
+    if (!effectiveProfile) return;
+    setActingContainerId(containerId);
+    try {
+      let pass = await requestSudoPassword();
+      const res = await window.api.diagnostics.restartDockerContainer(effectiveProfile, containerId, pass || undefined);
+      if (res.success) {
+        setStatusMsg({ type: 'success', text: `Контейнер ${containerId} успішно перезапущено` });
+        await fetchDockerContainers();
+      } else {
+        setStatusMsg({ type: 'error', text: res.error || 'Помилка перезапуску контейнера' });
+      }
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Помилка виконання' });
+    } finally {
+      setActingContainerId(null);
+    }
+  };
+
+  const handleViewContainerLogs = async (container: DockerContainer) => {
+    if (!effectiveProfile) return;
+    try {
+      const res = await window.api.diagnostics.getDockerLogs(effectiveProfile, container.id, 150);
+      if (res.success) {
+        setSelectedContainerLogs({
+          id: container.id,
+          name: container.names || container.id,
+          logs: res.logs || 'Логів не знайдено.',
+        });
+      } else {
+        alert(res.error || 'Не вдалося прочитати логи контейнера');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Помилка отримання логів');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'docker' && isOpen) {
+      fetchDockerContainers();
+    }
+  }, [activeTab, isOpen, fetchDockerContainers]);
 
   useEffect(() => {
     if (activeTab === 'logs' && isOpen) {
@@ -569,6 +638,17 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               <FileText className="w-3.5 h-3.5" />
               <span>Логи (Journal)</span>
             </button>
+            <button
+              onClick={() => setActiveTab('docker')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'docker'
+                  ? 'bg-white dark:bg-[#2A2A2E] text-zinc-900 dark:text-white shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Container className="w-3.5 h-3.5 text-blue-500" />
+              <span>Docker ({dockerContainers.length})</span>
+            </button>
           </div>
 
           {activeTab === 'logs' && (
@@ -895,6 +975,88 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 );
               })}
             </div>
+          ) : activeTab === 'docker' ? (
+            <div className="flex flex-col gap-3">
+              {isDockerLoading ? (
+                <div className="py-20 flex items-center justify-center gap-2 text-zinc-400 text-xs">
+                  <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                  <span>Перевірка Docker демона та контейнерів...</span>
+                </div>
+              ) : !isDockerInstalled ? (
+                <div className="py-16 text-center text-zinc-500 text-xs">
+                  <Container className="w-8 h-8 text-zinc-400 mx-auto mb-2 opacity-50" />
+                  <p className="font-semibold text-zinc-700 dark:text-zinc-300">Docker не виявлено</p>
+                  <p className="text-zinc-400 mt-1">Docker daemon або CLI не встановлені у цій гостьовій системі.</p>
+                </div>
+              ) : dockerContainers.length === 0 ? (
+                <div className="py-16 text-center text-zinc-500 text-xs">
+                  <Container className="w-8 h-8 text-blue-500 mx-auto mb-2 opacity-50" />
+                  <p className="font-semibold text-zinc-700 dark:text-zinc-300">Немає активних контейнерів</p>
+                  <p className="text-zinc-400 mt-1">Docker встановлено, але контейнери відсутні.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
+                      <tr>
+                        <th className="px-4 py-2.5 font-medium">Стан</th>
+                        <th className="px-4 py-2.5 font-medium">Назва / ID</th>
+                        <th className="px-4 py-2.5 font-medium">Образ (Image)</th>
+                        <th className="px-4 py-2.5 font-medium">Порти</th>
+                        <th className="px-4 py-2.5 font-medium text-right">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {dockerContainers.map((c) => (
+                        <tr key={c.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-700/30">
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                c.state === 'running'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${c.state === 'running' ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                              {c.state === 'running' ? 'Running' : c.state}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 font-mono">
+                            <div>{c.names || c.id}</div>
+                            <div className="text-[10px] text-zinc-400 font-normal">{c.id.slice(0, 12)}</div>
+                          </td>
+                          <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 max-w-xs truncate" title={c.image}>
+                            {c.image}
+                          </td>
+                          <td className="px-4 py-3 text-zinc-500 font-mono text-[11px] max-w-xs truncate" title={c.ports}>
+                            {c.ports || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleViewContainerLogs(c)}
+                                title="Переглянути логи контейнера"
+                                className="px-2 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors"
+                              >
+                                Логи
+                              </button>
+                              <button
+                                onClick={() => handleRestartContainer(c.id)}
+                                disabled={actingContainerId === c.id}
+                                title="Перезапустити контейнер"
+                                className="p-1.5 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-600 dark:text-amber-400 transition-colors disabled:opacity-50"
+                              >
+                                <RotateCcw className={`w-3.5 h-3.5 ${actingContainerId === c.id ? 'animate-spin' : ''}`} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex flex-col h-[460px] bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden relative">
               {/* Subtle top indicator during background sync */}
@@ -944,6 +1106,30 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
             </div>
           )}
         </div>
+
+        {/* Docker Container Logs Modal */}
+        {selectedContainerLogs && (
+          <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-zinc-950 rounded-2xl border border-zinc-800 max-w-3xl w-full h-[500px] flex flex-col shadow-2xl modal-animate overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between text-xs text-zinc-300 bg-zinc-900/50">
+                <div className="flex items-center gap-2 font-mono">
+                  <Container className="w-4 h-4 text-blue-400" />
+                  <span className="font-bold">{selectedContainerLogs.name}</span>
+                  <span className="text-zinc-500">({selectedContainerLogs.id.slice(0, 12)})</span>
+                </div>
+                <button
+                  onClick={() => setSelectedContainerLogs(null)}
+                  className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed text-zinc-300 select-text whitespace-pre-wrap">
+                {selectedContainerLogs.logs}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-[#25252a]/40 flex items-center justify-between">

@@ -79,12 +79,31 @@ export interface VMMetrics {
   ballooninfo?: any;
 }
 
+export interface ProxmoxRRDPoint {
+  time: number;
+  cpu?: number;
+  mem?: number;
+  maxmem?: number;
+  disk?: number;
+  maxdisk?: number;
+  netin?: number;
+  netout?: number;
+}
+
 export interface VMSnapshot {
   name: string;
   snaptime: number;
   description?: string;
   parent?: string;
   vmstate?: boolean;
+}
+
+export interface ProxmoxBackup {
+  volid: string;
+  size: number;
+  ctime: number;
+  format?: string;
+  notes?: string;
 }
 
 export interface SSHProfile {
@@ -101,6 +120,7 @@ export interface SSHProfile {
   vmid?: number;
   node?: string;
   serverId?: string;
+  jumpHostProfileId?: string;
 }
 
 export interface TerminalTab {
@@ -180,6 +200,17 @@ export interface VMDiskUsageInfo {
   mountedOn: string;
 }
 
+export interface DockerContainer {
+  id: string;
+  image: string;
+  command: string;
+  created: string;
+  status: string;
+  ports: string;
+  names: string;
+  state: 'running' | 'exited' | 'paused' | 'restarting' | 'other';
+}
+
 export interface VMDiagnosticsData {
   processes: VMProcessInfo[];
   disks: VMDiskUsageInfo[];
@@ -249,38 +280,58 @@ export interface WindowApi {
     testConnection: (config: ProxmoxServerConfig) => Promise<{ success: boolean; version?: string; error?: string }>;
     getNodes: (config: ProxmoxServerConfig) => Promise<ProxmoxNode[]>;
     getVMs: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxVM[]>;
-    getVMMetrics: (config: ProxmoxServerConfig, node: string, vmid: number) => Promise<VMMetrics>;
+    getVMMetrics: (config: ProxmoxServerConfig, node: string, vmid: number, vmType?: 'qemu' | 'lxc') => Promise<VMMetrics>;
+    getRRDData: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      timeframe?: 'hour' | 'day' | 'week' | 'month' | 'year',
+      vmType?: 'qemu' | 'lxc'
+    ) => Promise<ProxmoxRRDPoint[]>;
     executeVMAction: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
-      action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume'
+      action: 'start' | 'stop' | 'shutdown' | 'reboot' | 'suspend' | 'resume',
+      vmType?: 'qemu' | 'lxc'
     ) => Promise<{ success: boolean; taskId?: string }>;
-    getSnapshots: (config: ProxmoxServerConfig, node: string, vmid: number) => Promise<VMSnapshot[]>;
+    getSnapshots: (config: ProxmoxServerConfig, node: string, vmid: number, vmType?: 'qemu' | 'lxc') => Promise<VMSnapshot[]>;
+    getBackups: (config: ProxmoxServerConfig, node: string, vmid: number) => Promise<ProxmoxBackup[]>;
+    createBackup: (
+      config: ProxmoxServerConfig,
+      node: string,
+      vmid: number,
+      mode?: 'snapshot' | 'suspend' | 'stop',
+      compress?: 'zstd' | 'gzip' | 'lzo' | 'none'
+    ) => Promise<{ success: boolean; taskId?: string }>;
     createSnapshot: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
       snapname: string,
       description?: string,
-      vmstate?: boolean
+      vmstate?: boolean,
+      vmType?: 'qemu' | 'lxc'
     ) => Promise<{ success: boolean; taskId?: string }>;
     rollbackSnapshot: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
-      snapname: string
+      snapname: string,
+      vmType?: 'qemu' | 'lxc'
     ) => Promise<{ success: boolean; taskId?: string }>;
     deleteSnapshot: (
       config: ProxmoxServerConfig,
       node: string,
       vmid: number,
-      snapname: string
+      snapname: string,
+      vmType?: 'qemu' | 'lxc'
     ) => Promise<{ success: boolean; taskId?: string }>;
     getTermproxyTicket: (
       config: ProxmoxServerConfig,
       node: string,
-      vmid?: number
+      vmid?: number,
+      vmType?: 'qemu' | 'lxc'
     ) => Promise<{ ticket: string; port: number; user: string }>;
     getNodeStatus: (config: ProxmoxServerConfig, node: string) => Promise<any>;
     getNodeServices: (config: ProxmoxServerConfig, node: string) => Promise<ProxmoxNodeService[]>;
@@ -338,6 +389,9 @@ export interface WindowApi {
       lines?: number,
       unit?: string
     ) => Promise<{ success: boolean; logs?: string; error?: string }>;
+    getDockerContainers: (profile: SSHProfile) => Promise<{ success: boolean; containers?: DockerContainer[]; isInstalled: boolean; error?: string }>;
+    restartDockerContainer: (profile: SSHProfile, containerId: string, sudoPassword?: string) => Promise<{ success: boolean; error?: string }>;
+    getDockerLogs: (profile: SSHProfile, containerId: string, lines?: number) => Promise<{ success: boolean; logs?: string; error?: string }>;
   };
   system: {
     getTheme: () => Promise<'dark' | 'light'>;

@@ -1,4 +1,4 @@
-import type { SSHProfile, VMDiagnosticsData, VMProcessInfo, VMDiskUsageInfo } from '../src/types';
+import type { SSHProfile, VMDiagnosticsData, VMProcessInfo, VMDiskUsageInfo, DockerContainer } from '../src/types';
 import type { SSHService } from './ssh';
 
 export class DiagnosticsService {
@@ -242,6 +242,103 @@ ps aux --sort=-%mem | head -n 35
       };
     } catch (err: any) {
       return { success: false, error: err.message || 'Не вдалося отримати логи системи' };
+    }
+  }
+
+  public async getDockerContainers(
+    profile: SSHProfile
+  ): Promise<{ success: boolean; containers?: DockerContainer[]; isInstalled: boolean; error?: string }> {
+    try {
+      // 1. Check if docker is installed/available
+      const checkRes = await this.ssh.execCommand(profile, 'which docker', 5000);
+      if (checkRes.code !== 0 || !checkRes.stdout?.trim()) {
+        return { success: true, containers: [], isInstalled: false };
+      }
+
+      // 2. Fetch containers list via json format
+      const cmd = `docker ps -a --format '{{json .}}' 2>/dev/null || ${this.buildSudoCommand(profile, "docker ps -a --format '{{json .}}'")} 2>/dev/null`;
+      const res = await this.ssh.execCommand(profile, cmd, 10000);
+
+      const lines = (res.stdout || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      const containers: DockerContainer[] = [];
+
+      for (const line of lines) {
+        try {
+          const parsed = JSON.parse(line);
+          const rawState = (parsed.State || '').toLowerCase();
+          const state: DockerContainer['state'] =
+            rawState === 'running'
+              ? 'running'
+              : rawState === 'exited'
+              ? 'exited'
+              : rawState === 'paused'
+              ? 'paused'
+              : rawState.includes('restarting')
+              ? 'restarting'
+              : 'other';
+
+          containers.push({
+            id: parsed.ID || '',
+            image: parsed.Image || '',
+            command: parsed.Command || '',
+            created: parsed.CreatedAt || parsed.RunningFor || '',
+            status: parsed.Status || '',
+            ports: parsed.Ports || '',
+            names: parsed.Names || '',
+            state,
+          });
+        } catch {
+          // Ignore non-json line
+        }
+      }
+
+      return { success: true, containers, isInstalled: true };
+    } catch (err: any) {
+      return { success: false, containers: [], isInstalled: false, error: err.message || 'Помилка отримання Docker контейнерів' };
+    }
+  }
+
+  public async restartDockerContainer(
+    profile: SSHProfile,
+    containerId: string,
+    sudoPassword?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const cleanId = containerId.replace(/[^a-zA-Z0-9_.-]/g, '');
+    if (!cleanId) return { success: false, error: 'Некоректний ID контейнера' };
+
+    const rawCmd = `docker restart ${cleanId}`;
+    const cmd = `${this.buildSudoCommand(profile, rawCmd, sudoPassword)} 2>&1`;
+
+    try {
+      const res = await this.ssh.execCommand(profile, cmd, 20000);
+      if (res.code !== 0) {
+        return { success: false, error: res.stdout || res.stderr || `Команда повернула код ${res.code}` };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Помилка перезапуску контейнера' };
+    }
+  }
+
+  public async getDockerLogs(
+    profile: SSHProfile,
+    containerId: string,
+    lines: number = 100
+  ): Promise<{ success: boolean; logs?: string; error?: string }> {
+    const cleanId = containerId.replace(/[^a-zA-Z0-9_.-]/g, '');
+    if (!cleanId) return { success: false, error: 'Некоректний ID контейнера' };
+
+    const rawCmd = `docker logs --tail ${lines} ${cleanId}`;
+    const cmd = `${this.buildSudoCommand(profile, rawCmd)} 2>&1`;
+
+    try {
+      const res = await this.ssh.execCommand(profile, cmd, 10000);
+      return {
+        success: true,
+        logs: res.stdout || res.stderr || 'Логів не знайдено.',
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Помилка читання логів контейнера' };
     }
   }
 }

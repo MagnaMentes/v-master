@@ -31,6 +31,10 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
   const [isConnecting, setIsConnecting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentProfile, setCurrentProfile] = useState<SSHProfile | null>(null);
+  const [reconnectCountdown, setReconnectCountdown] = useState<number | null>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentProfileRef = useRef<SSHProfile | null>(null);
+  currentProfileRef.current = currentProfile;
 
   useEffect(() => {
     let isCancelled = false;
@@ -96,9 +100,36 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
         }
       });
 
+      const startAutoReconnect = () => {
+        if (reconnectTimerRef.current) {
+          clearInterval(reconnectTimerRef.current);
+        }
+        let countdown = 5;
+        setReconnectCountdown(countdown);
+        reconnectTimerRef.current = setInterval(() => {
+          countdown -= 1;
+          if (countdown <= 0) {
+            if (reconnectTimerRef.current) clearInterval(reconnectTimerRef.current);
+            setReconnectCountdown(null);
+            // Reconnect
+            if (currentProfileRef.current && termRef.current) {
+              setIsConnecting(true);
+              const { rows, cols } = termRef.current || { rows: 24, cols: 80 };
+              window.api.ssh.connect(pane.sessionId, currentProfileRef.current, rows, cols).then(() => {
+                setIsConnecting(false);
+                termRef.current?.focus();
+              });
+            }
+          } else {
+            setReconnectCountdown(countdown);
+          }
+        }, 1000);
+      };
+
       const unsubClosed = window.api.ssh.onClosed((sessionId) => {
         if (sessionId === pane.sessionId && termRef.current) {
           termRef.current.writeln('\r\n\x1b[33m[Сесію термінала завершено]\x1b[0m\r\n');
+          startAutoReconnect();
         }
       });
 
@@ -195,6 +226,10 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
 
     return () => {
       isCancelled = true;
+      if (reconnectTimerRef.current) {
+        clearInterval(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       disposables.forEach((fn) => {
         try {
           fn();
@@ -244,6 +279,22 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {reconnectCountdown !== null && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-[10px] text-blue-600 dark:text-blue-400 animate-pulse">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>Авто-перепідключення через {reconnectCountdown}с...</span>
+              <button
+                onClick={() => {
+                  if (reconnectTimerRef.current) clearInterval(reconnectTimerRef.current);
+                  setReconnectCountdown(null);
+                }}
+                className="underline hover:text-blue-800 dark:hover:text-blue-200 ml-1 cursor-pointer font-medium"
+              >
+                Скасувати
+              </button>
+            </div>
+          )}
+
           {error && (
             <span className="flex items-center gap-1 text-[10px] text-red-500 truncate max-w-[200px]" title={error}>
               <AlertCircle className="w-3 h-3 shrink-0" />

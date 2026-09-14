@@ -6,11 +6,12 @@ import { useApp } from '../contexts/AppContext';
 export const TitleBar: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const { activeServer, refreshClusterData, isLoading, error } = useApp();
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent);
 
   return (
     <header className="titlebar-drag-region h-11 w-full flex items-center justify-between px-4 border-b select-none transition-colors duration-200 bg-[#ECECEC] dark:bg-[#1E1E22] border-[#D4D4D4] dark:border-[#2E2E32]">
-      {/* Traffic Light Spacing (macOS) */}
-      <div className="flex items-center gap-2 pl-16">
+      {/* Traffic Light Spacing on macOS */}
+      <div className={`flex items-center gap-2 ${isMac ? 'pl-16' : 'pl-1'}`}>
         <span className="font-semibold text-xs tracking-wide text-zinc-700 dark:text-zinc-300">
           V-Master
         </span>

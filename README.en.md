@@ -28,36 +28,36 @@ The application combines hypervisor API capabilities with an integrated sysadmin
   - Secure sudo password storage in macOS Keychain with an automatic prompt right after a successful connection test.
   - Customizable snippet library for 1-click command execution.
 
-- **Proxmox VE Cluster & Batch VM Operations**:
-  - Real-time monitoring of host status, CPU load, RAM consumption, and storage metrics across all cluster nodes.
-  - Multi-select VM checkboxes and bottom Floating Action Bar for batch Start, Stop, Reboot, and OS package updates.
-  - Node systemd services management (`pve-cluster`, `pvedaemon`, `pveproxy`, etc.).
-  - Snapshot creation, rollback, and deletion with optional RAM state retention.
+- **Proxmox LXC Container Management**:
+  - First-class support for both KVM/QEMU VMs and lightweight Linux Containers (LXC).
+  - Distinct visual badges (**`VM`** in blue and **`CT`** in purple).
+  - Snapshotting, power actions, and console access for containers.
 
-- **Safe OS Updates with Pre-Update Safety Snapshots**:
-  - Automatic pre-update safety snapshot creation before running package upgrades.
-  - One-click rollback button if updates cause issues or service regressions.
-  - Automated sudo password reuse without redundant modal password prompts during updates.
-  - Classification into critical security updates vs. standard packages.
-  - Isolated single-session execution to prevent dropped connections or Fail2ban lockouts during core package upgrades (`libc-bin`, `sshd`).
+- **Historical Performance Graphs (Proxmox RRD Metrics)**:
+  - Interactive SVG performance charts for CPU utilization (%) and memory consumption (RAM).
+  - Timeframe presets: **1 hour**, **24 hours**, and **7 days**.
 
-- **Deep System Diagnostics & Live Journalctl Viewer**:
-  - Interactive systemd `journalctl` log viewer with continuous streaming of new lines without resetting or flashing the view, smart auto-scrolling, priority filters (*All*, *Errors*, *Warnings*), unit filtering (`ssh`, `nginx`, `docker`), and real-time substring search.
-  - Real-time top CPU and memory-consuming process analytics.
-  - Process termination (`kill`, `SIGKILL`), systemd service management, and Linux page cache flushing (`drop_caches`).
+- **Proxmox VZDump Backup Management**:
+  - View and manage existing backups for every VM and container across cluster storages.
+  - On-demand backup creation with custom modes (*Snapshot*, *Suspend*, *Stop*) and compression (*ZSTD*, *GZIP*, *None*).
 
-- **Dual-Pane Graphic SFTP Manager with In-App Editor**:
-  - Seamless remote file system exploration.
-  - Fast upload, download, renaming, and safe deletion of files and directories.
-  - Fullscreen in-app text and configuration editor with line numbers, syntax styling, and remote saving via **`⌘ + S`** (`Ctrl + S`).
+- **In-Guest Docker Container Monitoring**:
+  - Inspect running and stopped Docker containers with image names, port bindings, and health statuses.
+  - Restart individual containers with root/sudo support.
+  - Live streaming of container logs in-app without terminal overhead.
 
-- **Native macOS Notification Center Integration**:
-  - Native desktop notifications for unexpected VM power drops or crashes (`running` -> `stopped`).
-  - Completion alerts for lengthy batch package update workflows.
+- **Enhanced SFTP Manager**:
+  - Drag-and-Drop file uploads with a visual drop-zone overlay.
+  - **Live Tail** polling mode in the built-in file editor for continuous log watching.
 
-- **Design & Seamless In-App Updates**:
-  - macOS Vibrancy theme support (System / Dark / Light).
-  - Background updates via GitHub Releases with detailed "What's New" release notes.
+- **SSH Bastion / Jump Host & Auto-Reconnect**:
+  - Secure SSH tunneling to private-network servers via intermediate bastion hosts.
+  - Automatic terminal reconnection countdown (5 seconds) with manual cancel support upon connection drop.
+
+- **Cross-Platform Support (macOS & Windows)**:
+  - Native window title bar handling (`hiddenInset` for macOS with traffic lights, native frameless header for Windows).
+  - Windows OpenSSH Agent pipe support (`\\.\pipe\openssh-ssh-agent`).
+  - Windows NSIS installer and portable ZIP targets for x64.
 
 ---
 

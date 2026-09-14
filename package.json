@@ -1,6 +1,6 @@
 {
   "name": "v-master",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "private": true,
   "type": "module",
   "description": "macOS application for Proxmox VE and Ubuntu VM terminal administration",
@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "package": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win",
     "package:publish": "npm run build && electron-builder --mac --publish always",
     "postinstall": "node -e \"const fs=require('fs'); if(!fs.existsSync('node_modules/electron/dist/Electron.app')) { require('child_process').execSync('unzip -q -o ~/Library/Caches/electron/*/electron-*-darwin-arm64.zip -d node_modules/electron/dist'); } fs.writeFileSync('node_modules/electron/path.txt', 'Electron.app/Contents/MacOS/Electron');\""
   },
@@ -28,10 +29,11 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ssh2": "^1.16.0",
-    "ssh2-sftp-client": "^11.0.0",
+    "ssh2-sftp-client": "^12.0.0",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.20.0",
     "@types/node": "^22.13.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -74,6 +76,29 @@
           ]
         }
       ]
+    },
+    "win": {
+      "icon": "public/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "publish": [
       {
