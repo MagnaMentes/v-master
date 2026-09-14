@@ -154,12 +154,18 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     vgname: '',
   });
 
-  // Disk Wipe/Init modal
-  const [diskModal, setDiskModal] = useState<{
+  // High-Risk / Dangerous Action Confirmation Modal
+  const [dangerModal, setDangerModal] = useState<{
     isOpen: boolean;
-    devpath: string;
-    action: 'initgpt' | 'wipe';
+    title: string;
+    description: string;
+    targetName: string;
+    expectedConfirmText: string;
+    actionType: 'wipe-disk' | 'init-gpt' | 'delete-storage';
+    targetPath?: string;
+    onConfirm: () => Promise<void>;
   } | null>(null);
+  const [dangerInputText, setDangerInputText] = useState('');
 
   // Create VM Modal
   const [createVMModal, setCreateVMModal] = useState<{
@@ -388,35 +394,69 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     }
   };
 
-  const handleDeleteStorage = async (storageId: string) => {
+  // Protected Danger Handlers
+  const requestDeleteStorage = (storageId: string) => {
     if (!activeServer) return;
-    if (!confirm(`Ви дійсно бажаєте видалити конфігурацію сховища ${storageId}? Дані на диску не видаляються.`)) return;
-    try {
-      await window.api.proxmox.deleteStorage(activeServer, storageId);
-      setCrudActionStatus({ type: 'success', text: `Сховище ${storageId} видалено з кластера` });
-      await loadStorageAndDisks();
-    } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка видалення сховища' });
+    // Protect core system storage pools
+    if (storageId === 'local' || storageId === 'local-lvm') {
+      setCrudActionStatus({
+        type: 'error',
+        text: `Заборонено: сховище "${storageId}" є системним ядром Proxmox VE і не може бути видалене для запобігання відмові системи.`,
+      });
+      return;
     }
+
+    setDangerInputText('');
+    setDangerModal({
+      isOpen: true,
+      title: 'Видалення сховища кластера',
+      actionType: 'delete-storage',
+      targetName: storageId,
+      expectedConfirmText: storageId,
+      description: `Ви збираєтеся видалити конфігурацію сховища "${storageId}" з кластера Proxmox. Всі віртуальні машини, які використовують цей пул для дисків, втратять доступ до образів.`,
+      onConfirm: async () => {
+        try {
+          await window.api.proxmox.deleteStorage(activeServer, storageId);
+          setCrudActionStatus({ type: 'success', text: `Сховище ${storageId} успішно видалено з кластера` });
+          await loadStorageAndDisks();
+        } catch (err: any) {
+          setCrudActionStatus({ type: 'error', text: err.message || 'Помилка видалення сховища' });
+        }
+      },
+    });
   };
 
-  // Disk Action Handlers
-  const handleDiskAction = async () => {
-    if (!activeServer || !nodeName || !diskModal) return;
-    const { devpath, action } = diskModal;
-    setDiskModal(null);
-    try {
-      if (action === 'initgpt') {
-        const res = await window.api.proxmox.initGptDisk(activeServer, nodeName, devpath);
-        setCrudActionStatus({ type: 'success', text: `Ініціалізацію GPT для ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
-      } else {
-        const res = await window.api.proxmox.wipeDisk(activeServer, nodeName, devpath);
-        setCrudActionStatus({ type: 'success', text: `Очищення диска ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
-      }
-      await loadStorageAndDisks();
-    } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка виконання операції над диском' });
-    }
+  const requestDiskAction = (devpath: string, action: 'initgpt' | 'wipe') => {
+    if (!activeServer || !nodeName) return;
+    const baseDevName = devpath.replace('/dev/', '');
+    const isWipe = action === 'wipe';
+
+    setDangerInputText('');
+    setDangerModal({
+      isOpen: true,
+      title: isWipe ? 'Очищення диска (Wipe Disk)' : 'Ініціалізація GPT розмітки',
+      actionType: isWipe ? 'wipe-disk' : 'init-gpt',
+      targetName: devpath,
+      targetPath: devpath,
+      expectedConfirmText: baseDevName,
+      description: isWipe
+        ? `КРИТИЧНО НЕБЕЗПЕЧНА ДІЯ: Буде повністю стерто таблицю розділів і всі сигнатури томів на фізичному пристрої ${devpath}. Будь-які дані на диску буде БЕЗПОВОРОТНО знищено!`
+        : `На диску ${devpath} буде створено нову розмітку таблиці розділів GPT. Попередні існуючі дані або розділи будуть видалені.`,
+      onConfirm: async () => {
+        try {
+          if (isWipe) {
+            const res = await window.api.proxmox.wipeDisk(activeServer, nodeName, devpath);
+            setCrudActionStatus({ type: 'success', text: `Очищення диска ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
+          } else {
+            const res = await window.api.proxmox.initGptDisk(activeServer, nodeName, devpath);
+            setCrudActionStatus({ type: 'success', text: `Ініціалізацію GPT для ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
+          }
+          await loadStorageAndDisks();
+        } catch (err: any) {
+          setCrudActionStatus({ type: 'error', text: err.message || 'Помилка виконання операції над диском' });
+        }
+      },
+    });
   };
 
   // Create VM Handlers
@@ -1161,14 +1201,23 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                               {formatBytes(s.avail)} / {formatBytes(s.total)}
                             </td>
                             <td className="px-4 py-2.5 text-right font-sans">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteStorage(s.storage)}
-                                title="Видалити сховище з кластера"
-                                className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {s.storage === 'local' || s.storage === 'local-lvm' ? (
+                                <span
+                                  className="text-[10px] text-zinc-400 font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 cursor-default"
+                                  title="Системне сховище PVE захищене від видалення"
+                                >
+                                  Системне
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => requestDeleteStorage(s.storage)}
+                                  title="Видалити сховище з кластера (з підтвердженням)"
+                                  className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1233,16 +1282,16 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => setDiskModal({ isOpen: true, devpath: d.devpath, action: 'initgpt' })}
-                                  title="Ініціалізувати диск з розміткою GPT"
+                                  onClick={() => requestDiskAction(d.devpath, 'initgpt')}
+                                  title="Ініціалізувати диск з розміткою GPT (з підтвердженням)"
                                   className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] transition-colors cursor-pointer"
                                 >
                                   Init GPT
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setDiskModal({ isOpen: true, devpath: d.devpath, action: 'wipe' })}
-                                  title="Очистити таблицю розділів диска (Wipe Disk)"
+                                  onClick={() => requestDiskAction(d.devpath, 'wipe')}
+                                  title="Очистити таблицю розділів диска (Wipe Disk) - КРИТИЧНО"
                                   className="px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-[11px] transition-colors cursor-pointer"
                                 >
                                   Wipe
@@ -2215,33 +2264,73 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         </div>
       )}
 
-      {/* MODAL: Disk Action Confirmation */}
-      {diskModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white dark:bg-[#202023] w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl p-5 flex flex-col gap-4 modal-animate">
-            <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400 font-semibold text-sm">
-              <AlertTriangle className="w-5 h-5" />
-              <span>{diskModal.action === 'initgpt' ? 'Ініціалізація GPT диска' : 'Очищення диска (Wipe Disk)'}</span>
-            </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Ви збираєтеся виконати дію над пристроєм <code className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{diskModal.devpath}</code>.
-              <br />
-              <strong className="text-rose-600 dark:text-rose-400">Увага:</strong> Ця операція перезапише або видалить таблицю розділів і всі існуючі файли на цьому диску.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
+      {/* MODAL: Protected Dangerous Action Confirmation (Storage / Disks) */}
+      {dangerModal && dangerModal.isOpen && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#1E1E22] w-full max-w-md rounded-2xl border-2 border-rose-500/60 dark:border-rose-500/50 shadow-2xl p-6 flex flex-col gap-4 modal-animate">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  {dangerModal.title}
+                </h3>
+                <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
+                  Критична операція, що впливає на збереження даних
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setDiskModal(null)}
-                className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
+                onClick={() => setDangerModal(null)}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200 leading-relaxed">
+              {dangerModal.description}
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs text-zinc-700 dark:text-zinc-300">
+                Для підтвердження та розблокування введіть назву{' '}
+                <code className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-rose-600 dark:text-rose-400 font-mono font-bold">
+                  {dangerModal.expectedConfirmText}
+                </code>
+                :
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={dangerInputText}
+                onChange={(e) => setDangerInputText(e.target.value)}
+                placeholder={dangerModal.expectedConfirmText}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono focus:outline-hidden focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setDangerModal(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Скасувати
               </button>
               <button
                 type="button"
-                onClick={handleDiskAction}
-                className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs"
+                disabled={dangerInputText.trim() !== dangerModal.expectedConfirmText}
+                onClick={async () => {
+                  const onConf = dangerModal.onConfirm;
+                  setDangerModal(null);
+                  await onConf();
+                }}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors disabled:opacity-30 disabled:hover:bg-rose-600 cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                Підтвердити операцію
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Підтвердити знищення</span>
               </button>
             </div>
           </div>
