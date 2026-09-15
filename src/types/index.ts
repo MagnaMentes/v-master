@@ -218,7 +218,10 @@ export interface SFTPItem {
   permissions: string;
 }
 
+export type Language = 'uk' | 'en';
+
 export interface AppSettings {
+  language: Language;
   theme: ThemeMode;
   terminalTheme: TerminalTheme;
   terminalFontSize: number;

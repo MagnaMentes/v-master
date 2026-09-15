@@ -18,6 +18,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { ServerModal } from './ServerModal';
 
 interface NavItem {
@@ -28,6 +29,7 @@ interface NavItem {
 }
 
 export const Sidebar: React.FC = () => {
+  const { t } = useTranslation();
   const {
     servers,
     activeServer,
@@ -63,11 +65,11 @@ export const Sidebar: React.FC = () => {
   };
 
   const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Огляд кластера', icon: LayoutDashboard },
-    { id: 'terminal', label: 'Термінали ВМ', icon: Terminal, badge: tabs.length },
-    { id: 'sftp', label: 'SFTP файли', icon: FolderTree },
-    { id: 'snippets', label: 'Снипети команд', icon: Code2 },
-    { id: 'settings', label: 'Налаштування', icon: Settings },
+    { id: 'dashboard', label: t('sidebar.clusterOverview'), icon: LayoutDashboard },
+    { id: 'terminal', label: t('sidebar.vmTerminals'), icon: Terminal, badge: tabs.length },
+    { id: 'sftp', label: t('sidebar.sftpFiles'), icon: FolderTree },
+    { id: 'snippets', label: t('sidebar.commandSnippets'), icon: Code2 },
+    { id: 'settings', label: t('sidebar.settings'), icon: Settings },
   ];
 
   return (
@@ -81,7 +83,7 @@ export const Sidebar: React.FC = () => {
           >
             <div className="flex items-center gap-2 truncate">
               <Server className="w-4 h-4 text-blue-500 shrink-0" />
-              <span className="truncate">{activeServer ? activeServer.name : 'Виберіть сервер...'}</span>
+              <span className="truncate">{activeServer ? activeServer.name : t('sidebar.selectServerPrompt')}</span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           </button>
@@ -90,7 +92,7 @@ export const Sidebar: React.FC = () => {
           {isServerDropdownOpen && (
             <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-white dark:bg-[#28282D] border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden py-1 text-xs">
               <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                Сервери Proxmox VE
+                {t('sidebar.pveServers')}
               </div>
               {servers.map((srv) => (
                 <button
@@ -118,7 +120,7 @@ export const Sidebar: React.FC = () => {
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors font-medium"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Додати новий сервер</span>
+                  <span>{t('sidebar.addNewServer')}</span>
                 </button>
               </div>
             </div>
@@ -162,22 +164,22 @@ export const Sidebar: React.FC = () => {
       {/* Proxmox Nodes & VMs Tree */}
       <div className="flex-1 overflow-y-auto p-2">
         <div className="px-2 py-1 flex items-center justify-between text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-          <span>Кластер / Віртуальні машини</span>
+          <span>{t('sidebar.clusterVms')}</span>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => checkAllVMUpdates()}
-              title="Перевірити оновлення для всіх активних ВМ"
+              title={t('sidebar.checkAllUpdates')}
               className="p-1 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3 h-3" />
             </button>
-            <span className="text-[10px] font-normal">{vms.length} ВМ</span>
+            <span className="text-[10px] font-normal">{t('sidebar.vmsCount', { count: vms.length })}</span>
           </div>
         </div>
 
         {nodes.length === 0 && activeServer && (
           <div className="px-3 py-4 text-center text-xs text-zinc-400">
-            Вузол не знайдено або з’єднання відсутнє
+            {t('sidebar.nodeNotFound')}
           </div>
         )}
 
@@ -217,7 +219,7 @@ export const Sidebar: React.FC = () => {
                   <div className="flex items-center gap-0.5 shrink-0 ml-auto">
                     {vmUpdates[vm.vmid]?.isLoading && (
                       <span
-                        title="Перевірка оновлень ОС..."
+                        title={t('sidebar.checkingUpdates')}
                         className="inline-flex items-center justify-center p-0.5 text-zinc-400 dark:text-zinc-500 shrink-0"
                       >
                         <RefreshCw className="w-2.5 h-2.5 animate-spin" />
@@ -225,7 +227,7 @@ export const Sidebar: React.FC = () => {
                     )}
                     {vmAlerts[vm.vmid]?.hasAlert && (
                       <span
-                        title={`Високе навантаження ресурсів: CPU ${vmAlerts[vm.vmid].cpuPercent}%, RAM ${vmAlerts[vm.vmid].ramPercent}%`}
+                        title={t('sidebar.highResourceUsage', { cpu: vmAlerts[vm.vmid].cpuPercent, ram: vmAlerts[vm.vmid].ramPercent })}
                         className={`inline-flex items-center justify-center p-0.5 rounded-full ${
                           vmAlerts[vm.vmid].severity === 'critical'
                             ? 'bg-rose-500 text-white animate-pulse'
@@ -237,7 +239,7 @@ export const Sidebar: React.FC = () => {
                     )}
                     {vmUpdates[vm.vmid]?.hasCritical && (
                       <span
-                        title="Критичні оновлення ОС потребують уваги!"
+                        title={t('sidebar.criticalUpdates')}
                         className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-red-500 text-white font-bold text-[9px] shrink-0 animate-pulse shadow-xs"
                       >
                         !
@@ -245,7 +247,7 @@ export const Sidebar: React.FC = () => {
                     )}
                     {vmUpdates[vm.vmid]?.hasDangerousOnly && !vmUpdates[vm.vmid]?.hasCritical && (
                       <span
-                        title="Залишилися оновлення підвищеного ризику (ядро/GRUB). Потребують ручного оновлення зі снапшотом."
+                        title={t('sidebar.dangerousUpdates')}
                         className="inline-flex items-center justify-center p-0.5 rounded-full bg-amber-500 text-white shadow-xs shrink-0"
                       >
                         <Lock className="w-2.5 h-2.5" />
@@ -253,7 +255,7 @@ export const Sidebar: React.FC = () => {
                     )}
                     {!vmUpdates[vm.vmid]?.hasCritical && (vmUpdates[vm.vmid]?.safeCount || 0) > 0 && (
                       <span
-                        title={`Доступно ${vmUpdates[vm.vmid].safeCount} дозволених оновлень`}
+                        title={t('sidebar.safeUpdatesCount', { count: vmUpdates[vm.vmid].safeCount })}
                         className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded-full bg-blue-500/15 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 font-semibold text-[9px] border border-blue-500/30 dark:border-blue-400/30 shadow-2xs shrink-0"
                       >
                         <ArrowUpCircle className="w-2.5 h-2.5" />
@@ -271,7 +273,7 @@ export const Sidebar: React.FC = () => {
                         e.stopPropagation();
                         openTerminalForVM(vm, 'ssh');
                       }}
-                      title="Відкрити SSH термінал"
+                      title={t('sidebar.openSshTerminal')}
                       className="p-1 rounded hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
                     >
                       <Terminal className="w-3 h-3" />
@@ -326,7 +328,7 @@ export const Sidebar: React.FC = () => {
                           ) : (
                             <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
                           )}
-                          <span className="truncate">Неактивні ВМ</span>
+                          <span className="truncate">{t('sidebar.inactiveVms')}</span>
                         </div>
                         <span className="text-[10px] text-zinc-400">({inactiveNodeVMs.length})</span>
                       </button>
@@ -351,11 +353,11 @@ export const Sidebar: React.FC = () => {
           onClick={() => {
             window.api?.system?.openExternal('https://send.monobank.ua/jar/6s5yE12CxH');
           }}
-          title="Підтримати проєкт V-Master"
+          title={t('sidebar.supportProjectTooltip')}
           className="inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
         >
           <Heart className="w-3.5 h-3.5 fill-rose-500/20 text-rose-500" />
-          <span>Підтримати V-Master</span>
+          <span>{t('sidebar.supportProject')}</span>
         </button>
       </div>
 

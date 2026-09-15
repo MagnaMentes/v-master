@@ -11,9 +11,12 @@ import {
   Edit2,
   Plus,
   AlertTriangle,
+  Globe,
+  Check,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { ServerModal } from './ServerModal';
 import { SSHProfileModal } from './SSHProfileModal';
 import { terminalThemes } from '../utils/terminalThemes';
@@ -22,6 +25,7 @@ import type { ProxmoxServerConfig, SSHProfile, TerminalTheme } from '../types';
 export const SettingsView: React.FC = () => {
   const { theme, setTheme, terminalTheme, setTerminalTheme, settings, updateSettings } = useTheme();
   const { servers, saveServer, deleteServer, sshProfiles, saveSSHProfile, deleteSSHProfile } = useApp();
+  const { t, language, setLanguage } = useTranslation();
 
   const [editingServer, setEditingServer] = useState<ProxmoxServerConfig | null>(null);
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
@@ -58,17 +62,66 @@ export const SettingsView: React.FC = () => {
           <SettingsIcon className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-base font-bold">Налаштування V-Master</h1>
+          <h1 className="text-base font-bold">{t('settings.title')}</h1>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Керування зовнішнім виглядом, підключеннями та терміналами
+            {t('settings.subtitle')}
           </p>
+        </div>
+      </div>
+
+      {/* Interface Language Settings */}
+      <div className="p-5 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Globe className="w-4 h-4 text-blue-500" />
+            <span>{t('settings.languageTitle')}</span>
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            {t('settings.languageDesc')}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          <button
+            onClick={() => setLanguage('uk')}
+            className={`p-3 rounded-xl border flex items-center justify-between text-xs font-medium transition-all ${
+              language === 'uk'
+                ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20 shadow-xs'
+                : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">🇺🇦</span>
+              <div className="text-left">
+                <div className="font-semibold">{t('settings.langUk')}</div>
+                <div className="text-[10px] text-zinc-400">Ukrainian</div>
+              </div>
+            </div>
+            {language === 'uk' && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+          </button>
+          <button
+            onClick={() => setLanguage('en')}
+            className={`p-3 rounded-xl border flex items-center justify-between text-xs font-medium transition-all ${
+              language === 'en'
+                ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20 shadow-xs'
+                : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">🇬🇧</span>
+              <div className="text-left">
+                <div className="font-semibold">{t('settings.langEn')}</div>
+                <div className="text-[10px] text-zinc-400">English</div>
+              </div>
+            </div>
+            {language === 'en' && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+          </button>
         </div>
       </div>
 
       {/* Visual Theme Settings (Rule #7 compliant) */}
       <div className="p-5 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs space-y-4">
         <h2 className="text-sm font-semibold flex items-center gap-2">
-          <span>Тема інтерфейсу</span>
+          <span>{t('settings.themeTitle')}</span>
         </h2>
         <div className="grid grid-cols-3 gap-3 max-w-md">
           <button
@@ -80,7 +133,7 @@ export const SettingsView: React.FC = () => {
             }`}
           >
             <Sun className="w-5 h-5" />
-            <span>Світла (Light)</span>
+            <span>{t('settings.themeLight')}</span>
           </button>
           <button
             onClick={() => setTheme('dark')}
@@ -91,7 +144,7 @@ export const SettingsView: React.FC = () => {
             }`}
           >
             <Moon className="w-5 h-5" />
-            <span>Темна (Dark)</span>
+            <span>{t('settings.themeDark')}</span>
           </button>
           <button
             onClick={() => setTheme('system')}
@@ -102,7 +155,7 @@ export const SettingsView: React.FC = () => {
             }`}
           >
             <Monitor className="w-5 h-5" />
-            <span>macOS Auto</span>
+            <span>{t('settings.themeSystem')}</span>
           </button>
         </div>
       </div>
@@ -111,12 +164,12 @@ export const SettingsView: React.FC = () => {
       <div className="p-5 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs space-y-4">
         <h2 className="text-sm font-semibold flex items-center gap-2">
           <Terminal className="w-4 h-4 text-amber-500" />
-          <span>Налаштування термінала xterm</span>
+          <span>{t('settings.terminalTitle')}</span>
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl text-xs">
           <div>
-            <label className="block font-medium mb-1.5">Кольорова палітра термінала</label>
+            <label className="block font-medium mb-1.5">{t('settings.terminalPalette')}</label>
             <select
               value={terminalTheme}
               onChange={(e) => setTerminalTheme(e.target.value as TerminalTheme)}
@@ -130,7 +183,7 @@ export const SettingsView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-medium mb-1.5">Розмір шрифту ({fontSize}px)</label>
+            <label className="block font-medium mb-1.5">{t('settings.terminalFontSize', { size: fontSize })}</label>
             <input
               type="range"
               min="11"
@@ -146,7 +199,7 @@ export const SettingsView: React.FC = () => {
         <div className="pt-2 max-w-2xl space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="font-medium text-zinc-600 dark:text-zinc-300">
-              Візуальний приклад зовнішнього вигляду
+              {t('settings.terminalPreview')}
             </span>
             <div className="flex items-center gap-1.5">
               {themeOptions.map((opt) => (
@@ -251,7 +304,7 @@ export const SettingsView: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold flex items-center gap-2">
             <Server className="w-4 h-4 text-blue-500" />
-            <span>Підключені сервери Proxmox VE</span>
+            <span>{t('settings.serversTitle')}</span>
           </h2>
           <button
             onClick={() => {
@@ -261,12 +314,12 @@ export const SettingsView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Додати сервер</span>
+            <span>{t('settings.addServer')}</span>
           </button>
         </div>
 
         {servers.length === 0 ? (
-          <div className="text-xs text-zinc-400 py-3">Не додано жодного сервера Proxmox</div>
+          <div className="text-xs text-zinc-400 py-3">{t('settings.noServers')}</div>
         ) : (
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
             {servers.map((srv) => (
@@ -283,7 +336,7 @@ export const SettingsView: React.FC = () => {
                       setEditingServer(srv);
                       setIsServerModalOpen(true);
                     }}
-                    title="Редагувати"
+                    title={t('common.edit')}
                     className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -293,11 +346,11 @@ export const SettingsView: React.FC = () => {
                       setDeleteConfirm({
                         type: 'server',
                         id: srv.id,
-                        title: 'Видалення сервера Proxmox',
-                        description: `Ви дійсно бажаєте видалити сервер "${srv.name}" (${srv.host})? Усі збережені дані авторизації цього сервера буде видалено.`,
+                        title: t('settings.deleteServerTitle'),
+                        description: t('settings.deleteServerConfirm', { name: srv.name, host: srv.host }),
                       })
                     }
-                    title="Видалити"
+                    title={t('common.delete')}
                     className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -314,7 +367,7 @@ export const SettingsView: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold flex items-center gap-2">
             <Key className="w-4 h-4 text-amber-500" />
-            <span>Збережені SSH профілі Ubuntu</span>
+            <span>{t('settings.sshProfilesTitle')}</span>
           </h2>
           <button
             onClick={() => {
@@ -324,12 +377,12 @@ export const SettingsView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Додати профіль</span>
+            <span>{t('settings.addProfile')}</span>
           </button>
         </div>
 
         {sshProfiles.length === 0 ? (
-          <div className="text-xs text-zinc-400 py-3">Не налаштовано жодного SSH профілю</div>
+          <div className="text-xs text-zinc-400 py-3">{t('settings.noProfiles')}</div>
         ) : (
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
             {sshProfiles.map((p) => (
@@ -346,7 +399,7 @@ export const SettingsView: React.FC = () => {
                       setEditingSSHProfile(p);
                       setIsSSHModalOpen(true);
                     }}
-                    title="Редагувати"
+                    title={t('common.edit')}
                     className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -356,11 +409,11 @@ export const SettingsView: React.FC = () => {
                       setDeleteConfirm({
                         type: 'ssh',
                         id: p.id,
-                        title: 'Видалення SSH профілю',
-                        description: `Ви дійсно бажаєте видалити збережений SSH профіль "${p.name}" (${p.username}@${p.host})?`,
+                        title: t('settings.deleteProfileTitle'),
+                        description: t('settings.deleteProfileConfirm', { name: p.name, user: p.username, host: p.host }),
                       })
                     }
-                    title="Видалити"
+                    title={t('common.delete')}
                     className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -412,7 +465,7 @@ export const SettingsView: React.FC = () => {
                 onClick={() => setDeleteConfirm(null)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -427,7 +480,7 @@ export const SettingsView: React.FC = () => {
                 }}
                 className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer"
               >
-                Видалити
+                {t('common.delete')}
               </button>
             </div>
           </div>

@@ -79,6 +79,7 @@ const defaultSnippets: Snippet[] = [
 ];
 
 const defaultSettings: AppSettings = {
+  language: 'uk',
   theme: 'system',
   terminalTheme: 'dark',
   terminalFontSize: 14,

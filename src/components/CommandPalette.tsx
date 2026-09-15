@@ -7,12 +7,14 @@ import {
   Settings,
   LayoutDashboard,
   Server,
+  Globe,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface CommandItem {
   id: string;
-  category: 'Віртуальні машини' | 'Навігація' | 'Дії' | 'Сніппети';
+  category: string;
   title: string;
   subtitle?: string;
   badge?: string;
@@ -27,6 +29,7 @@ interface CommandPaletteProps {
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
+  const { t, setLanguage, language } = useTranslation();
   const {
     vms,
     selectVM,
@@ -59,9 +62,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
   items.push(
     {
       id: 'nav-dashboard',
-      category: 'Навігація',
-      title: 'Огляд кластера (Dashboard)',
-      subtitle: activeServer ? activeServer.name : 'Головний екран',
+      category: t('commandPalette.navigation'),
+      title: `${t('sidebar.clusterOverview')} (${t('sidebar.dashboard')})`,
+      subtitle: activeServer ? activeServer.name : '',
       icon: LayoutDashboard,
       perform: () => {
         setActiveView('dashboard');
@@ -70,9 +73,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     },
     {
       id: 'nav-terminal',
-      category: 'Навігація',
-      title: 'Термінал SSH',
-      subtitle: 'Сесії командного рядка',
+      category: t('commandPalette.navigation'),
+      title: t('sidebar.terminal'),
+      subtitle: t('commandPalette.openTerminal'),
       icon: Terminal,
       perform: () => {
         setActiveView('terminal');
@@ -81,9 +84,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     },
     {
       id: 'nav-sftp',
-      category: 'Навігація',
-      title: 'Файловий менеджер SFTP',
-      subtitle: 'Перегляд та передача файлів',
+      category: t('commandPalette.navigation'),
+      title: t('sidebar.sftpFiles'),
+      subtitle: t('commandPalette.openSftp'),
       icon: FolderTree,
       perform: () => {
         setActiveView('sftp');
@@ -92,9 +95,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     },
     {
       id: 'nav-snippets',
-      category: 'Навігація',
-      title: 'Бібліотека сніппетів',
-      subtitle: 'Збережені команди',
+      category: t('commandPalette.navigation'),
+      title: t('sidebar.commandSnippets'),
+      subtitle: t('commandPalette.openSnippets'),
       icon: Code2,
       perform: () => {
         setActiveView('snippets');
@@ -103,9 +106,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     },
     {
       id: 'nav-settings',
-      category: 'Навігація',
-      title: 'Налаштування',
-      subtitle: 'Конфігурація застосунку та зовнішній вигляд',
+      category: t('commandPalette.navigation'),
+      title: t('sidebar.settings'),
+      subtitle: t('commandPalette.openSettings'),
       icon: Settings,
       perform: () => {
         setActiveView('settings');
@@ -114,13 +117,43 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     }
   );
 
-  // 2. VM items
+  // 2. Language switch actions
+  items.push(
+    {
+      id: 'lang-uk',
+      category: t('commandPalette.actions'),
+      title: t('commandPalette.switchLangUk'),
+      subtitle: language === 'uk' ? '✓ Активна мова' : 'Перемкнути інтерфейс',
+      badge: 'UA',
+      icon: Globe,
+      iconColor: 'text-blue-500',
+      perform: () => {
+        setLanguage('uk');
+        onClose();
+      },
+    },
+    {
+      id: 'lang-en',
+      category: t('commandPalette.actions'),
+      title: t('commandPalette.switchLangEn'),
+      subtitle: language === 'en' ? '✓ Active language' : 'Switch interface',
+      badge: 'EN',
+      icon: Globe,
+      iconColor: 'text-indigo-500',
+      perform: () => {
+        setLanguage('en');
+        onClose();
+      },
+    }
+  );
+
+  // 3. VM items
   vms.forEach((vm) => {
     items.push({
       id: `vm-${vm.vmid}`,
-      category: 'Віртуальні машини',
+      category: t('sidebar.vmsAndContainers'),
       title: vm.name,
-      subtitle: `VMID: ${vm.vmid} • Нода: ${vm.node} • Стан: ${vm.status === 'running' ? 'Увімкнено' : 'Зупинено'}`,
+      subtitle: `VMID: ${vm.vmid} • ${vm.node} • ${vm.status === 'running' ? t('sidebar.running') : t('sidebar.stopped')}`,
       badge: `#${vm.vmid}`,
       icon: Server,
       iconColor: vm.status === 'running' ? 'text-emerald-500' : 'text-zinc-400',
@@ -134,9 +167,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     if (vm.status === 'running') {
       items.push({
         id: `vm-term-${vm.vmid}`,
-        category: 'Дії',
-        title: `Відкрити SSH термінал: ${vm.name}`,
-        subtitle: `Підключення до #${vm.vmid}`,
+        category: t('commandPalette.actions'),
+        title: `${t('sidebar.openSshTerminal')}: ${vm.name}`,
+        subtitle: `#${vm.vmid}`,
         badge: 'SSH',
         icon: Terminal,
         iconColor: 'text-blue-500',
@@ -149,9 +182,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
       items.push({
         id: `vm-sftp-${vm.vmid}`,
-        category: 'Дії',
-        title: `Перейти до SFTP: ${vm.name}`,
-        subtitle: `Файлова система #${vm.vmid}`,
+        category: t('commandPalette.actions'),
+        title: `${t('commandPalette.openSftp')}: ${vm.name}`,
+        subtitle: `#${vm.vmid}`,
         badge: 'SFTP',
         icon: FolderTree,
         iconColor: 'text-amber-500',
@@ -164,11 +197,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     }
   });
 
-  // 3. Snippets
+  // 4. Snippets
   snippets.forEach((s) => {
     items.push({
       id: `snippet-${s.id}`,
-      category: 'Сніппети',
+      category: t('sidebar.snippets'),
       title: s.title,
       subtitle: s.command,
       badge: s.category,
@@ -228,7 +261,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Введіть назву ВМ, команду або дію... (Esc для виходу)"
+            placeholder={t('commandPalette.placeholder')}
             className="flex-1 bg-transparent text-sm outline-hidden placeholder:text-zinc-400 font-medium"
           />
           <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[10px] font-semibold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded">
@@ -243,7 +276,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         >
           {filteredItems.length === 0 ? (
             <div className="py-10 text-center text-zinc-400">
-              Нічого не знайдено за запитом &laquo;{query}&raquo;
+              {t('commandPalette.noResults')} &laquo;{query}&raquo;
             </div>
           ) : (
             filteredItems.map((item, index) => {
@@ -313,9 +346,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         {/* Footer shortcuts helper */}
         <div className="px-4 py-2 bg-zinc-50/80 dark:bg-[#18181A]/80 border-t border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400">
           <div className="flex items-center gap-3">
-            <span>↑↓ Навігація</span>
-            <span>↵ Вибрати</span>
-            <span>esc Закрити</span>
+            <span>↑↓ {t('commandPalette.navigation')}</span>
+            <span>↵ {t('common.save') === 'Save' ? 'Select' : 'Вибрати'}</span>
+            <span>esc {t('common.close')}</span>
           </div>
           <span className="font-medium">V-Master Command Palette</span>
         </div>

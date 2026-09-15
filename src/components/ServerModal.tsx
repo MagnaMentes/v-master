@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Server, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { ProxmoxServerConfig } from '../types';
 
 interface ServerModalProps {
@@ -15,6 +16,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({
   onSave,
   initialServer,
 }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialServer?.name || '');
   const [host, setHost] = useState(initialServer?.host || '');
   const [port, setPort] = useState(initialServer?.port || 8006);
@@ -111,11 +113,11 @@ export const ServerModal: React.FC<ServerModalProps> = ({
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-700">
           <div className="flex items-center gap-2 font-semibold">
             <Server className="w-5 h-5 text-blue-500" />
-            <span>{initialServer ? 'Редагувати сервер Proxmox' : 'Додати сервер Proxmox'}</span>
+            <span>{initialServer ? (t('common.edit') + ' ' + t('settings.serversTitle')) : t('settings.addServer')}</span>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+            className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -124,64 +126,64 @@ export const ServerModal: React.FC<ServerModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-sm">
           <div>
-            <label className="block font-medium text-xs mb-1">Назва сервера</label>
+            <label className="block font-medium text-xs mb-1">{t('sftp.name')}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Мій Proxmox Кластер"
-              className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              placeholder="Proxmox Node / Cluster"
+              className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-xs"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block font-medium text-xs mb-1">Хост або IP адреса *</label>
+              <label className="block font-medium text-xs mb-1">Host / IP *</label>
               <input
                 type="text"
                 required
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
-                placeholder="192.168.1.100 або pve.local"
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                placeholder="192.168.1.100"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-xs"
               />
             </div>
             <div>
-              <label className="block font-medium text-xs mb-1">Порт</label>
+              <label className="block font-medium text-xs mb-1">{t('common.port')}</label>
               <input
                 type="number"
                 value={port}
                 onChange={(e) => setPort(Number(e.target.value))}
                 placeholder="8006"
-                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-xs"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-medium text-xs mb-1">Тип автентифікації</label>
+            <label className="block font-medium text-xs mb-1">{t('sftp.type')}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setAuthType('token')}
-                className={`py-1.5 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                className={`py-1.5 px-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
                   authType === 'token'
                     ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
               >
-                API Token (Рекомендовано)
+                API Token
               </button>
               <button
                 type="button"
                 onClick={() => setAuthType('ticket')}
-                className={`py-1.5 px-3 rounded-lg border text-xs font-medium transition-colors ${
+                className={`py-1.5 px-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
                   authType === 'ticket'
                     ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
               >
-                Логін / Пароль
+                {t('common.user')} / {t('common.password')}
               </button>
             </div>
           </div>
@@ -213,13 +215,13 @@ export const ServerModal: React.FC<ServerModalProps> = ({
             <div className="space-y-3 pt-1">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-medium text-xs mb-1">Користувач *</label>
+                  <label className="block font-medium text-xs mb-1">{t('common.user')} *</label>
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="root"
-                    className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-xs"
                   />
                 </div>
                 <div>
@@ -228,19 +230,19 @@ export const ServerModal: React.FC<ServerModalProps> = ({
                     type="text"
                     value={realm}
                     onChange={(e) => setRealm(e.target.value)}
-                    placeholder="pam або pve"
-                    className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    placeholder="pam / pve"
+                    className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-xs"
                   />
                 </div>
               </div>
               <div>
-                <label className="block font-medium text-xs mb-1">Пароль *</label>
+                <label className="block font-medium text-xs mb-1">{t('common.password')} *</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Введіть пароль"
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-xs"
                 />
               </div>
             </div>
@@ -255,7 +257,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({
                 className="rounded border-zinc-300 dark:border-zinc-600 text-blue-600"
               />
               <span className="text-xs text-zinc-600 dark:text-zinc-400">
-                Перевіряти валідність SSL сертифіката (вимкніть для самопідписаних)
+                SSL Verify
               </span>
             </label>
           </div>
@@ -282,24 +284,24 @@ export const ServerModal: React.FC<ServerModalProps> = ({
               type="button"
               disabled={testing || !host}
               onClick={handleTest}
-              className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {testing ? 'Перевірка...' : 'Перевірити з’єднання'}
+              {testing ? t('common.loading') : 'Test Connection'}
             </button>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving || !host}
-                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 shadow-xs"
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
               >
-                {saving ? 'Збереження...' : 'Зберегти'}
+                {saving ? t('common.loading') : t('common.save')}
               </button>
             </div>
           </div>

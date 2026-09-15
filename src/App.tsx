@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { AppProvider, useApp } from './contexts/AppContext';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
@@ -64,9 +65,11 @@ const AppLayout: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <AppProvider>
-        <AppLayout />
-      </AppProvider>
+      <LanguageProvider>
+        <AppProvider>
+          <AppLayout />
+        </AppProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 };

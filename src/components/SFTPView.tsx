@@ -17,6 +17,7 @@ import {
   FileCode,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { SFTPFileEditorModal } from './SFTPFileEditorModal';
 import type { SFTPItem, SSHProfile } from '../types';
 
@@ -43,6 +44,7 @@ const PROTECTED_SYSTEM_PATHS = [
 ];
 
 export const SFTPView: React.FC = () => {
+  const { t } = useTranslation();
   const { sshProfiles, selectedVM } = useApp();
 
   const getInitialPath = (profile: SSHProfile | null) => {
@@ -303,49 +305,44 @@ export const SFTPView: React.FC = () => {
             <FolderTree className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sm font-bold">SFTP Файловий браузер</h1>
+            <h1 className="text-sm font-bold">{t('sftp.title')}</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Швидкий обмін файлами з віртуальними машинами Ubuntu
+              {t('sidebar.sftpFiles')}
             </p>
           </div>
         </div>
 
         {/* Profile Selector */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-500">ВМ / Профіль:</span>
-          {sshProfiles.length > 0 ? (
-            <select
-              value={selectedProfile?.id || ''}
-              onChange={(e) => {
-                const found = sshProfiles.find((p) => p.id === e.target.value);
-                if (found) setSelectedProfile(found);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-xs font-medium focus:outline-hidden"
-            >
-              {sshProfiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.username}@{p.host})
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-xs text-amber-500 flex items-center gap-1">
-              <Key className="w-3.5 h-3.5" />
-              <span>Немає налаштованих SSH профілів</span>
-            </span>
-          )}
+          <Key className="w-4 h-4 text-zinc-400" />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">{t('sftp.currentProfile')}:</span>
+          <select
+            value={selectedProfile ? selectedProfile.id : ''}
+            onChange={(e) => {
+              const p = sshProfiles.find((x) => x.id === e.target.value) || null;
+              setSelectedProfile(p);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-850 border border-zinc-300 dark:border-zinc-700 text-xs font-medium focus:outline-hidden"
+          >
+            {sshProfiles.length === 0 && <option value="">{t('settings.noProfiles')}</option>}
+            {sshProfiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.username}@{p.host})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Path Bar & Actions */}
-      <div className="px-4 py-2.5 bg-zinc-100 dark:bg-[#202024] border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
-        {/* Navigation & Breadcrumb */}
-        <div className="flex items-center gap-2 flex-1 mr-4 truncate">
+      {/* Action Bar & Path */}
+      <div className="p-2.5 bg-zinc-100 dark:bg-[#1E1E22] border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 text-xs">
+        {/* Navigation Breadcrumb & Back */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <button
             onClick={handleNavigateUp}
-            disabled={currentPath === '/' || !selectedProfile}
-            title="Перейти вгору"
-            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+            disabled={currentPath === '/' || currentPath === '.' || isLoading || !selectedProfile}
+            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30 cursor-pointer"
+            title={t('common.cancel')}
           >
             <ArrowUp className="w-4 h-4" />
           </button>
@@ -359,26 +356,26 @@ export const SFTPView: React.FC = () => {
           <button
             onClick={() => loadDirectory(currentPath)}
             disabled={isLoading || !selectedProfile}
-            title="Оновити список"
-            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+            title={t('sftp.refresh')}
+            className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-500' : ''}`} />
           </button>
           <button
             onClick={() => setIsMkdirOpen(true)}
             disabled={!selectedProfile}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-750 transition-colors font-medium disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-750 transition-colors font-medium disabled:opacity-50 cursor-pointer"
           >
             <FolderPlus className="w-3.5 h-3.5 text-amber-500" />
-            <span>Папка</span>
+            <span>{t('sftp.newFolder')}</span>
           </button>
           <button
             onClick={handleUploadFile}
             disabled={isLoading || !selectedProfile}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>Вивантажити на ВМ</span>
+            <span>{t('sftp.upload')}</span>
           </button>
         </div>
       </div>

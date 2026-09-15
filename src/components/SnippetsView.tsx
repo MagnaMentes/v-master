@@ -15,9 +15,11 @@ import {
   Tag,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { Snippet } from '../types';
 
 export const SnippetsView: React.FC = () => {
+  const { t } = useTranslation();
   const { snippets, saveSnippet, deleteSnippet, sendSnippetToTerminal, tabs } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -33,12 +35,12 @@ export const SnippetsView: React.FC = () => {
   const [category, setCategory] = useState<Snippet['category']>('custom');
 
   const categories = [
-    { id: 'all', label: 'Всі команди', icon: Tag },
-    { id: 'system', label: 'Системні', icon: Cpu },
-    { id: 'package', label: 'Пакети APT', icon: Package },
-    { id: 'docker', label: 'Docker контейнери', icon: Boxes },
-    { id: 'network', label: 'Мережа', icon: Globe },
-    { id: 'custom', label: 'Користувацькі', icon: Code2 },
+    { id: 'all', label: t('snippets.categories.all'), icon: Tag },
+    { id: 'system', label: t('snippets.categories.system'), icon: Cpu },
+    { id: 'package', label: t('snippets.categories.package'), icon: Package },
+    { id: 'docker', label: t('snippets.categories.docker'), icon: Boxes },
+    { id: 'network', label: t('snippets.categories.network'), icon: Globe },
+    { id: 'custom', label: t('snippets.categories.custom'), icon: Code2 },
   ];
 
   const filtered = snippets.filter((s) => {
@@ -99,19 +101,19 @@ export const SnippetsView: React.FC = () => {
             <Code2 className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sm font-bold">Бібліотека команд та снипетів</h1>
+            <h1 className="text-sm font-bold">{t('snippets.title')}</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Швидке виконання команд адміністрування на Ubuntu терміналах
+              {t('snippets.subtitle')}
             </p>
           </div>
         </div>
 
         <button
           onClick={handleOpenCreate}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Додати команду</span>
+          <span>{t('snippets.add')}</span>
         </button>
       </div>
 
@@ -146,7 +148,7 @@ export const SnippetsView: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Швидкий пошук..."
+            placeholder={t('snippets.search')}
             className="w-full pl-8 pr-3 py-1 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-xs focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
         </div>
@@ -197,15 +199,15 @@ export const SnippetsView: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleOpenEdit(snip)}
-                      title="Редагувати"
-                      className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                      title={t('common.edit')}
+                      className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => deleteSnippet(snip.id)}
-                      title="Видалити"
-                      className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-colors"
+                      title={t('common.delete')}
+                      className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -215,13 +217,13 @@ export const SnippetsView: React.FC = () => {
                     onClick={() => sendSnippetToTerminal(snip.command)}
                     title={
                       tabs.length > 0
-                        ? 'Виконати в активному терміналі ВМ'
+                        ? t('snippets.runInTerminal')
                         : 'Спочатку відкрийте термінал ВМ'
                     }
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
                   >
                     <Play className="w-3 h-3 fill-current" />
-                    <span>В термінал</span>
+                    <span>{t('snippets.runInTerminal')}</span>
                   </button>
                 </div>
               </div>
@@ -235,49 +237,49 @@ export const SnippetsView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white dark:bg-[#252528] rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 p-5 text-zinc-800 dark:text-zinc-100 text-xs">
             <h3 className="font-bold text-sm mb-3">
-              {editingSnippet ? 'Редагувати команду' : 'Додати нову команду'}
+              {editingSnippet ? t('common.edit') : t('snippets.add')}
             </h3>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="block font-medium mb-1">Назва *</label>
+                <label className="block font-medium mb-1">{t('sftp.name')} *</label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Оновлення Docker контейнерів"
+                  placeholder="Docker Compose Up"
                   className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 />
               </div>
 
               <div>
-                <label className="block font-medium mb-1">Категорія</label>
+                <label className="block font-medium mb-1">{t('snippets.category')}</label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as any)}
                   className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 >
-                  <option value="system">Системні (system)</option>
-                  <option value="package">Пакети APT (package)</option>
-                  <option value="docker">Docker контейнери</option>
-                  <option value="network">Мережа (network)</option>
-                  <option value="custom">Користувацькі (custom)</option>
+                  <option value="system">{t('snippets.categories.system')}</option>
+                  <option value="package">{t('snippets.categories.package')}</option>
+                  <option value="docker">{t('snippets.categories.docker')}</option>
+                  <option value="network">{t('snippets.categories.network')}</option>
+                  <option value="custom">{t('snippets.categories.custom')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block font-medium mb-1">Опис</label>
+                <label className="block font-medium mb-1">{t('snippets.description')}</label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Коротке пояснення призначення команди"
+                  placeholder="Короткий опис команди"
                   className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 />
               </div>
 
               <div>
-                <label className="block font-medium mb-1">Команда Bash / Shell *</label>
+                <label className="block font-medium mb-1">{t('snippets.command')} (Bash / Shell) *</label>
                 <textarea
                   required
                   rows={3}
@@ -292,16 +294,16 @@ export const SnippetsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="px-3 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={!title || !command}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer"
                 >
-                  Зберегти
+                  {t('common.save')}
                 </button>
               </div>
             </form>

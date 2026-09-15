@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { DownloadCloud, CheckCircle2, RefreshCw, Sparkles, X } from 'lucide-react';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { AppUpdateInfo, AppUpdateProgress } from '../types';
 
 export const AppUpdateToast: React.FC = () => {
+  const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [progress, setProgress] = useState<AppUpdateProgress | null>(null);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -207,9 +209,9 @@ export const AppUpdateToast: React.FC = () => {
           <div className="flex justify-end pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
             <button
               onClick={handleDismissPostUpdate}
-              className="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+              className="px-3.5 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
             >
-              Зрозуміло
+              {t('common.close')}
             </button>
           </div>
         </div>
@@ -234,19 +236,19 @@ export const AppUpdateToast: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Оновлення програми
+                Application Update
               </h4>
               <p className="text-sm font-medium">
                 {isDownloaded
-                  ? `Версія v${updateInfo.version} готова!`
-                  : `Завантажується v${updateInfo.version}...`}
+                  ? `v${updateInfo.version} ${t('common.success').toLowerCase()}`
+                  : `Downloading v${updateInfo.version}...`}
               </p>
             </div>
           </div>
           <button
             onClick={() => setIsDismissed(true)}
-            aria-label="Закрити"
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            aria-label={t('common.close')}
+            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -257,7 +259,7 @@ export const AppUpdateToast: React.FC = () => {
         {!isDownloaded && percent !== null && (
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
-              <span>Завантаження</span>
+              <span>{t('common.loading')}</span>
               <span>{percent}%</span>
             </div>
             <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
@@ -275,21 +277,21 @@ export const AppUpdateToast: React.FC = () => {
               <button
                 onClick={handleInstallNow}
                 disabled={isInstalling}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isInstalling ? 'animate-spin' : ''}`} />
-                {isInstalling ? 'Перезапуск...' : 'Перезапустити зараз'}
+                <span>{isInstalling ? t('common.loading') : 'Restart now'}</span>
               </button>
               <button
                 onClick={() => setIsDismissed(true)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Пізніше
+                {t('common.cancel')}
               </button>
             </>
           ) : (
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Оновлення завантажиться автоматично у фоновому режимі.
+              Auto background download
             </span>
           )}
         </div>

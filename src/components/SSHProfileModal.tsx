@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Key, FolderOpen, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { SSHProfile } from '../types';
 
 interface SSHProfileModalProps {
@@ -21,7 +22,8 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
   defaultHost,
   allProfiles = [],
 }) => {
-  const [name, setName] = useState(initialProfile?.name || (defaultVmid ? `VM-${defaultVmid} SSH` : 'Нове підключення'));
+  const { t } = useTranslation();
+  const [name, setName] = useState(initialProfile?.name || (defaultVmid ? `VM-${defaultVmid} SSH` : 'SSH Connection'));
   const [host, setHost] = useState(initialProfile?.host || defaultHost || '');
   const [port, setPort] = useState(initialProfile?.port || 22);
   const [username, setUsername] = useState(initialProfile?.username || '');
@@ -170,11 +172,11 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-700">
           <div className="flex items-center gap-2 font-semibold">
             <Key className="w-5 h-5 text-amber-500" />
-            <span>{initialProfile ? 'Редагувати SSH профіль' : 'Налаштувати SSH підключення'}</span>
+            <span>{initialProfile ? (t('common.edit') + ' ' + t('settings.sshProfilesTitle')) : t('settings.addProfile')}</span>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+            className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -182,27 +184,27 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-sm">
           <div>
-            <label className="block font-medium text-xs mb-1">Назва профілю</label>
+            <label className="block font-medium text-xs mb-1">{t('sftp.name')}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ubuntu Server SSH"
-              className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+              className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <div className="flex items-center justify-between mb-1">
-                <label className="block font-medium text-xs">Хост / IP адреса *</label>
+                <label className="block font-medium text-xs">Host / IP *</label>
                 {defaultHost && host !== defaultHost && (
                   <button
                     type="button"
                     onClick={() => setHost(defaultHost)}
                     className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
                   >
-                    Взяти IP ВМ ({defaultHost})
+                    IP ({defaultHost})
                   </button>
                 )}
               </div>
@@ -216,7 +218,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
               />
             </div>
             <div>
-              <label className="block font-medium text-xs mb-1">Порт</label>
+              <label className="block font-medium text-xs mb-1">{t('common.port')}</label>
               <input
                 type="number"
                 value={port}
@@ -228,19 +230,19 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
           </div>
 
           <div>
-            <label className="block font-medium text-xs mb-1">Користувач Ubuntu *</label>
+            <label className="block font-medium text-xs mb-1">{t('common.user')} *</label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="ubuntu або root"
+              placeholder="ubuntu / root"
               className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono text-xs"
             />
           </div>
 
           <div>
-            <label className="block font-medium text-xs mb-1">Метод автентифікації</label>
+            <label className="block font-medium text-xs mb-1">{t('sftp.type')}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -424,10 +426,10 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
               {testing ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                  <span>Перевірка...</span>
+                  <span>{t('common.loading')}</span>
                 </>
               ) : (
-                <span>Перевірити зʼєднання</span>
+                <span>Test Connection</span>
               )}
             </button>
             <div className="flex gap-2">
@@ -436,14 +438,14 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                 onClick={onClose}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving || !host || !username}
                 className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
               >
-                {saving ? 'Збереження...' : 'Зберегти'}
+                {saving ? t('common.loading') : t('common.save')}
               </button>
             </div>
           </div>

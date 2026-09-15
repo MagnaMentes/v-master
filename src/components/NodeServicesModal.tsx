@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RefreshCw, RotateCcw, Search, CheckCircle2, AlertCircle, Layers } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { ProxmoxNodeService } from '../types';
 
 interface NodeServicesModalProps {
@@ -15,6 +16,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
   onClose,
   nodeName,
 }) => {
+  const { t } = useTranslation();
   const { activeServer } = useApp();
   const [services, setServices] = useState<ProxmoxNodeService[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,13 +107,13 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold tracking-tight flex items-center gap-2">
-                Служби Proxmox: {nodeName}
+                Proxmox Services: {nodeName}
                 <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                  {services.length} служб
+                  {services.length}
                 </span>
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Моніторинг стану та керування демонами гіпервізора
+                {activeServer ? `${activeServer.name} (${activeServer.host})` : ''}
               </p>
             </div>
           </div>
@@ -120,7 +122,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
               onClick={fetchServices}
               disabled={loading}
               className="p-2 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
-              title="Оновити список"
+              title={t('sftp.refresh')}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-500' : ''}`} />
             </button>
@@ -165,7 +167,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Пошук служб (pvedaemon, pveproxy, corosync...)"
+              placeholder={t('common.search')}
               className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white dark:bg-[#202024] border border-zinc-200 dark:border-zinc-700 text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/40"
             />
           </div>
@@ -176,11 +178,11 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
           {loading && services.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-3">
               <RefreshCw className="w-7 h-7 animate-spin text-blue-500" />
-              <span className="text-xs">Завантаження служб Proxmox...</span>
+              <span className="text-xs">{t('common.loading')}</span>
             </div>
           ) : filteredServices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-zinc-400 text-xs">
-              Служб не знайдено
+              {t('commandPalette.noResults')}
             </div>
           ) : (
             filteredServices.map((svc) => {
@@ -223,10 +225,10 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
                     onClick={() => handleRestart(svc.service)}
                     disabled={isRestarting}
                     className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs"
-                    title="Перезапустити службу"
+                    title="Restart"
                   >
                     <RotateCcw className={`w-3.5 h-3.5 ${isRestarting ? 'animate-spin text-blue-500' : ''}`} />
-                    <span>{isRestarting ? 'Перезапуск...' : 'Перезапустити'}</span>
+                    <span>{isRestarting ? t('common.loading') : 'Restart'}</span>
                   </button>
                 </div>
               );
@@ -240,7 +242,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg text-xs font-medium bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
           >
-            Закрити
+            {t('common.close')}
           </button>
         </div>
       </div>

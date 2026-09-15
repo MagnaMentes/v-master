@@ -24,12 +24,14 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { ServerModal } from './ServerModal';
 import { NodeServicesModal } from './NodeServicesModal';
 import { NodeAdminModal } from './NodeAdminModal';
 import type { ProxmoxVM } from '../types';
 
 export const DashboardView: React.FC = () => {
+  const { t } = useTranslation();
   const {
     activeServer,
     nodes,
@@ -452,7 +454,7 @@ export const DashboardView: React.FC = () => {
                 type="button"
                 onClick={() => setIsEditServerModalOpen(true)}
                 className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer"
-                title="Налаштування сервера"
+                title={t('sidebar.settings')}
               >
                 <Settings className="w-3.5 h-3.5" />
               </button>
@@ -461,7 +463,7 @@ export const DashboardView: React.FC = () => {
                 onClick={() => refreshClusterData()}
                 className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors cursor-pointer"
               >
-                Оновити
+                {t('sftp.refresh')}
               </button>
             </>
           )}
@@ -470,7 +472,7 @@ export const DashboardView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Додати сервер</span>
+            <span>{t('settings.addServer')}</span>
           </button>
         </div>
       </div>
@@ -479,7 +481,7 @@ export const DashboardView: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="p-4 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs">
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span className="text-xs font-medium">Вузли онлайн</span>
+            <span className="text-xs font-medium">{t('dashboard.activeNodes')}</span>
             <Server className="w-4 h-4 text-blue-500" />
           </div>
           <div className="mt-2 text-2xl font-bold">
@@ -487,26 +489,26 @@ export const DashboardView: React.FC = () => {
           </div>
           <div className="mt-1 flex items-center gap-1 text-[11px] text-zinc-400">
             <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-            <span>Кластер активний</span>
+            <span>{t('sidebar.online')}</span>
           </div>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs">
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span className="text-xs font-medium">Всі ВМ</span>
+            <span className="text-xs font-medium">{t('sidebar.allVMs')}</span>
             <HardDrive className="w-4 h-4 text-indigo-500" />
           </div>
           <div className="mt-2 text-2xl font-bold">{vms.length}</div>
           <div className="mt-1 flex items-center gap-2 text-[11px]">
-            <span className="text-emerald-500 font-medium">{runningVMs.length} активні</span>
+            <span className="text-emerald-500 font-medium">{runningVMs.length} {t('sidebar.running').toLowerCase()}</span>
             <span className="text-zinc-400">•</span>
-            <span className="text-zinc-400">{stoppedVMs.length} вимкнені</span>
+            <span className="text-zinc-400">{stoppedVMs.length} {t('sidebar.stopped').toLowerCase()}</span>
           </div>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs">
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span className="text-xs font-medium">Використання CPU</span>
+            <span className="text-xs font-medium">{t('dashboard.totalCpu')}</span>
             <Cpu className="w-4 h-4 text-amber-500" />
           </div>
           <div className="mt-2 text-2xl font-bold">{(totalCpuUsage * 100).toFixed(1)}%</div>
@@ -520,7 +522,7 @@ export const DashboardView: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs">
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-            <span className="text-xs font-medium">Використання RAM</span>
+            <span className="text-xs font-medium">{t('dashboard.totalRam')}</span>
             <Activity className="w-4 h-4 text-emerald-500" />
           </div>
           <div className="mt-2 text-2xl font-bold">{memPercentage.toFixed(1)}%</div>
@@ -874,7 +876,7 @@ export const DashboardView: React.FC = () => {
                   }}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -895,7 +897,7 @@ export const DashboardView: React.FC = () => {
                   }}
                   className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {isNodeActionLoading ? 'Виконання...' : 'Підтвердити'}
+                  {isNodeActionLoading ? t('common.loading') : t('common.confirm')}
                 </button>
               </div>
             </div>
@@ -939,7 +941,7 @@ export const DashboardView: React.FC = () => {
                 onClick={() => setConfirmVMAction(null)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -951,7 +953,7 @@ export const DashboardView: React.FC = () => {
                     : 'bg-amber-600 hover:bg-amber-700'
                 }`}
               >
-                {actionLoading === confirmVMAction.vm.vmid ? 'Виконання...' : 'Підтвердити'}
+                {actionLoading === confirmVMAction.vm.vmid ? t('common.loading') : t('common.confirm')}
               </button>
             </div>
           </div>
