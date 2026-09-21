@@ -40,7 +40,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
 
   React.useEffect(() => {
     if (isOpen) {
-      setName(initialProfile?.name || (defaultVmid ? `VM-${defaultVmid} SSH` : 'Нове підключення'));
+      setName(initialProfile?.name || (defaultVmid ? `VM-${defaultVmid} SSH` : t('sshProfile.defaultName')));
       setHost(initialProfile?.host || defaultHost || '');
       setPort(initialProfile?.port || 22);
       setUsername(initialProfile?.username || '');
@@ -53,7 +53,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
       setShowSudoPrompt(false);
       setTestResult(null);
     }
-  }, [isOpen, initialProfile, defaultVmid, defaultHost]);
+  }, [isOpen, initialProfile, defaultVmid, defaultHost, t]);
 
   React.useEffect(() => {
     if (isOpen && !initialProfile?.username && window.api?.ssh?.getSystemDefaults) {
@@ -83,7 +83,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
     if (!host || !username) {
       setTestResult({
         success: false,
-        message: 'Вкажіть хост та імʼя користувача для перевірки зʼєднання.',
+        message: t('sshProfile.hostUserRequired'),
       });
       return;
     }
@@ -108,7 +108,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
       if (!window.api?.ssh?.testConnection) {
         setTestResult({
           success: false,
-          message: 'API перевірки SSH недоступне.',
+          message: t('sshProfile.apiUnavailable'),
         });
         return;
       }
@@ -117,7 +117,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
       if (res.success) {
         setTestResult({
           success: true,
-          message: 'SSH-зʼєднання успішно встановлено!',
+          message: t('sshProfile.connectSuccess'),
         });
         if (!sudoPassword && username !== 'root') {
           setShowSudoPrompt(true);
@@ -125,13 +125,13 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
       } else {
         setTestResult({
           success: false,
-          message: res.error || 'Не вдалося підключитися через SSH',
+          message: res.error || t('sshProfile.connectFailed'),
         });
       }
     } catch (e: any) {
       setTestResult({
         success: false,
-        message: e.message || 'Помилка виконання перевірки',
+        message: e.message || t('sshProfile.testError'),
       });
     } finally {
       setTesting(false);
@@ -253,7 +253,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                     : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
               >
-                Приватний SSH ключ
+                {t('sshProfile.privateKeyAuth')}
               </button>
               <button
                 type="button"
@@ -264,7 +264,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                     : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
               >
-                Пароль
+                {t('sshProfile.passwordAuth')}
               </button>
             </div>
           </div>
@@ -272,7 +272,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
           {authType === 'privateKey' ? (
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-xs mb-1">Шлях до приватного ключа *</label>
+                <label className="block font-medium text-xs mb-1">{t('sshProfile.privateKeyPathLabel')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -285,7 +285,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={handleSelectKeyFile}
-                    title="Вибрати файл ключа"
+                    title={t('sshProfile.selectKeyTitle')}
                     className="p-2 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                   >
                     <FolderOpen className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
@@ -293,25 +293,25 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                 </div>
               </div>
               <div>
-                <label className="block font-medium text-xs mb-1">Passphrase ключа (якщо є)</label>
+                <label className="block font-medium text-xs mb-1">{t('sshProfile.passphraseLabel')}</label>
                 <input
                   type="password"
                   value={privateKeyPassphrase}
                   onChange={(e) => setPrivateKeyPassphrase(e.target.value)}
-                  placeholder="Опціонально"
+                  placeholder={t('sshProfile.optional')}
                   className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
                 />
               </div>
             </div>
           ) : (
             <div>
-              <label className="block font-medium text-xs mb-1">Пароль облікового запису *</label>
+              <label className="block font-medium text-xs mb-1">{t('sshProfile.accountPasswordLabel')}</label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Введіть пароль"
+                placeholder={t('sshProfile.enterPassword')}
                 className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
               />
             </div>
@@ -321,15 +321,15 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
           {allProfiles.filter((p) => p.id !== initialProfile?.id).length > 0 && (
             <div>
               <label className="block font-medium text-xs mb-1 flex items-center justify-between">
-                <span>Проміжний вузол (SSH Bastion / Jump Host)</span>
-                <span className="text-[10px] text-zinc-400 font-normal">Опціонально</span>
+                <span>{t('sshProfile.jumpHostLabel')}</span>
+                <span className="text-[10px] text-zinc-400 font-normal">{t('sshProfile.optional')}</span>
               </label>
               <select
                 value={jumpHostProfileId}
                 onChange={(e) => setJumpHostProfileId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
               >
-                <option value="">Без проміжного вузла (пряме зʼєднання)</option>
+                <option value="">{t('sshProfile.directConnection')}</option>
                 {allProfiles
                   .filter((p) => p.id !== initialProfile?.id)
                   .map((p) => (
@@ -339,7 +339,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                   ))}
               </select>
               <p className="text-[11px] text-zinc-400 mt-1">
-                Зʼєднання проходитиме через тунель обраного Bastion-сервера.
+                {t('sshProfile.jumpHostDesc')}
               </p>
             </div>
           )}
@@ -349,19 +349,19 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
             <div className="flex items-center justify-between mb-1">
               <label className="block font-medium text-xs flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-                <span>Пароль sudo (для системних операцій)</span>
+                <span>{t('sshProfile.sudoPasswordLabel')}</span>
               </label>
-              <span className="text-[10px] text-zinc-400">Шифрується Keychain</span>
+              <span className="text-[10px] text-zinc-400">{t('sshProfile.keychainEncrypted')}</span>
             </div>
             <input
               type="password"
               value={sudoPassword}
               onChange={(e) => setSudoPassword(e.target.value)}
-              placeholder="Введіть пароль суперкористувача (sudo)"
+              placeholder={t('sshProfile.sudoPasswordPlaceholder')}
               className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
             />
             <p className="text-[11px] text-zinc-400 mt-1">
-              Зберігається в безпечному сховищі для оновлення пакетів та керування службами без повторних запитів.
+              {t('sshProfile.sudoPasswordDesc')}
             </p>
           </div>
 
@@ -390,10 +390,10 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                 </div>
                 <div className="space-y-0.5">
                   <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                    Зберегти пароль sudo для цієї ВМ?
+                    {t('sshProfile.saveSudoTitle')}
                   </div>
                   <div className="text-zinc-600 dark:text-zinc-400 text-[11px] leading-relaxed">
-                    Підключення успішне! Введіть пароль sudo, щоб не вводити його щоразу при встановленні оновлень ОС та перезапуску процесів.
+                    {t('sshProfile.saveSudoDesc')}
                   </div>
                 </div>
               </div>
@@ -402,7 +402,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                   type="password"
                   value={sudoPassword}
                   onChange={(e) => setSudoPassword(e.target.value)}
-                  placeholder="Введіть пароль sudo..."
+                  placeholder={t('sshProfile.saveSudoPlaceholder')}
                   className="flex-1 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-xs"
                 />
                 <button
@@ -410,7 +410,7 @@ export const SSHProfileModal: React.FC<SSHProfileModalProps> = ({
                   onClick={() => setShowSudoPrompt(false)}
                   className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors cursor-pointer"
                 >
-                  {sudoPassword ? 'Застосувати' : 'Пропустити'}
+                  {sudoPassword ? t('sshProfile.applyBtn') : t('sshProfile.skipBtn')}
                 </button>
               </div>
             </div>

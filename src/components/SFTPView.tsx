@@ -44,7 +44,7 @@ const PROTECTED_SYSTEM_PATHS = [
 ];
 
 export const SFTPView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { sshProfiles, selectedVM } = useApp();
 
   const getInitialPath = (profile: SSHProfile | null) => {
@@ -89,7 +89,7 @@ export const SFTPView: React.FC = () => {
       setSelectedProfile(sshProfiles[0]);
       setCurrentPath(getInitialPath(sshProfiles[0]));
     }
-  }, [selectedVM, sshProfiles, selectedProfile]);
+  }, [selectedVM, sshProfiles]);
 
   const loadDirectory = useCallback(async (dirPath: string) => {
     if (!selectedProfile) return;
@@ -105,11 +105,11 @@ export const SFTPView: React.FC = () => {
       setItems(list);
       setCurrentPath(dirPath);
     } catch (err: any) {
-      setError(err.message || 'Помилка завантаження каталогу');
+      setError(err.message || t('sftp.loadDirError'));
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProfile]);
+  }, [selectedProfile, t]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -148,11 +148,11 @@ export const SFTPView: React.FC = () => {
       setIsLoading(true);
       const res = await window.api.sftp.upload(selectedProfile, localFile, remotePath);
       if (res.success) {
-        setSuccessMsg(`Файл ${fileName} успішно вивантажено на сервер`);
+        setSuccessMsg(t('sftp.fileUploadedSuccess', { file: fileName }));
         setTimeout(() => setSuccessMsg(null), 3000);
         await loadDirectory(currentPath);
       } else {
-        setError(res.error || 'Помилка вивантаження файлу');
+        setError(res.error || t('sftp.fileUploadError'));
       }
     } catch (e: any) {
       setError(e.message);
@@ -189,12 +189,12 @@ export const SFTPView: React.FC = () => {
       }
 
       if (uploadedCount > 0) {
-        setSuccessMsg(`Успішно завантажено файлів: ${uploadedCount}`);
+        setSuccessMsg(t('sftp.batchUploadedSuccess', { count: uploadedCount }));
         setTimeout(() => setSuccessMsg(null), 3000);
         await loadDirectory(currentPath);
       }
     } catch (err: any) {
-      setError(`Помилка перетягування файлів: ${err.message}`);
+      setError(t('sftp.dropError', { error: err.message }));
     } finally {
       setIsLoading(false);
     }
@@ -222,10 +222,10 @@ export const SFTPView: React.FC = () => {
       setIsLoading(true);
       const res = await window.api.sftp.download(selectedProfile, remotePath, localSavePath);
       if (res.success) {
-        setSuccessMsg(`Файл ${item.name} збережено на ваш Mac`);
+        setSuccessMsg(t('sftp.fileSavedMac', { file: item.name }));
         setTimeout(() => setSuccessMsg(null), 3000);
       } else {
-        setError(res.error || 'Помилка завантаження файлу');
+        setError(res.error || t('sftp.fileDownloadError'));
       }
     } catch (e: any) {
       setError(e.message);
@@ -238,7 +238,7 @@ export const SFTPView: React.FC = () => {
     const remotePath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
     const normalized = remotePath.replace(/\/+$/, '') || '/';
     if (PROTECTED_SYSTEM_PATHS.includes(normalized)) {
-      setError(`Видалення системного каталогу "${remotePath}" суворо заборонено.`);
+      setError(t('sftp.systemPathProtected', { path: remotePath }));
       return;
     }
     setDeleteInputText('');
@@ -257,7 +257,7 @@ export const SFTPView: React.FC = () => {
       if (res.success) {
         await loadDirectory(currentPath);
       } else {
-        setError(res.error || 'Помилка видалення');
+        setError(res.error || t('sftp.deleteError'));
       }
     } catch (e: any) {
       setError(e.message);
@@ -279,7 +279,7 @@ export const SFTPView: React.FC = () => {
         setNewFolderName('');
         await loadDirectory(currentPath);
       } else {
-        setError(res.error || 'Помилка створення папки');
+        setError(res.error || t('sftp.mkdirError'));
       }
     } catch (e: any) {
       setError(e.message);
@@ -407,32 +407,32 @@ export const SFTPView: React.FC = () => {
           <div className="absolute inset-0 z-30 bg-blue-500/10 dark:bg-blue-500/20 border-2 border-dashed border-blue-500 rounded-xl m-2 flex flex-col items-center justify-center gap-3 backdrop-blur-2xs pointer-events-none">
             <Upload className="w-10 h-10 text-blue-500 animate-bounce" />
             <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
-              Скиньте файли сюди для вивантаження
+              {t('sftp.dropHere')}
             </div>
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              Файли будуть завантажені у поточну директорію: {currentPath}
+              {t('sftp.dropTarget', { path: currentPath })}
             </div>
           </div>
         )}
 
         {!selectedProfile ? (
           <div className="p-8 text-center text-xs text-zinc-400">
-            Оберіть або налаштуйте SSH профіль у вкладці Налаштування або на сторінці ВМ
+            {t('sftp.noProfileSelected')}
           </div>
         ) : isLoading && items.length === 0 ? (
           <div className="flex items-center justify-center p-12 text-xs text-zinc-400 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-            <span>Завантаження вмісту папки...</span>
+            <span>{t('sftp.loadingDir')}</span>
           </div>
         ) : (
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 bg-zinc-100 dark:bg-[#202024] border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 font-medium">
               <tr>
-                <th className="px-4 py-2.5">Назва файлу / папки</th>
-                <th className="px-4 py-2.5">Розмір</th>
-                <th className="px-4 py-2.5">Права</th>
-                <th className="px-4 py-2.5">Дата зміни</th>
-                <th className="px-4 py-2.5 text-right">Дії</th>
+                <th className="px-4 py-2.5">{t('sftp.tableFileName')}</th>
+                <th className="px-4 py-2.5">{t('sftp.tableSize')}</th>
+                <th className="px-4 py-2.5">{t('sftp.tablePermissions')}</th>
+                <th className="px-4 py-2.5">{t('sftp.tableModified')}</th>
+                <th className="px-4 py-2.5 text-right">{t('sftp.tableActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -459,7 +459,7 @@ export const SFTPView: React.FC = () => {
                     {item.permissions || '—'}
                   </td>
                   <td className="px-4 py-2.5 text-zinc-500 text-[11px]">
-                    {item.modifyTime ? new Date(item.modifyTime * 1000).toLocaleString('uk-UA') : '—'}
+                    {item.modifyTime ? new Date(item.modifyTime * 1000).toLocaleString(language === 'uk' ? 'uk-UA' : 'en-US') : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div
@@ -473,14 +473,14 @@ export const SFTPView: React.FC = () => {
                               const itemPath = currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`;
                               setEditingFile({ path: itemPath, name: item.name });
                             }}
-                            title="Редагувати файл на сервері"
+                            title={t('sftp.editOnServer')}
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-amber-600 dark:text-amber-400 transition-colors"
                           >
                             <FileCode className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDownloadFile(item)}
-                            title="Зберегти на Mac"
+                            title={t('sftp.saveToMac')}
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-blue-600 dark:text-blue-400 transition-colors"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -489,7 +489,7 @@ export const SFTPView: React.FC = () => {
                       )}
                       <button
                         onClick={() => handleDeleteItem(item)}
-                        title="Видалити"
+                        title={t('common.delete')}
                         className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -518,10 +518,10 @@ export const SFTPView: React.FC = () => {
       {isMkdirOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
           <div className="w-full max-w-xs bg-white dark:bg-[#252528] rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 p-5 text-zinc-800 dark:text-zinc-100 text-xs">
-            <h3 className="font-bold text-sm mb-3">Створити нову директорію</h3>
+            <h3 className="font-bold text-sm mb-3">{t('sftp.createFolderTitle')}</h3>
             <form onSubmit={handleCreateFolder} className="space-y-3">
               <div>
-                <label className="block font-medium mb-1">Назва папки</label>
+                <label className="block font-medium mb-1">{t('sftp.folderName')}</label>
                 <input
                   type="text"
                   required
@@ -536,16 +536,16 @@ export const SFTPView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsMkdirOpen(false)}
-                  className="px-3 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="px-3 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={!newFolderName}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer"
                 >
-                  Створити
+                  {t('common.create')}
                 </button>
               </div>
             </form>
@@ -563,7 +563,7 @@ export const SFTPView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  {deleteModalItem.type === 'directory' ? 'Видалення директорії' : 'Видалення файлу'}
+                  {deleteModalItem.type === 'directory' ? t('sftp.deleteFolderTitle') : t('sftp.deleteFileTitle')}
                 </h3>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono truncate max-w-[200px]">
                   {deleteModalItem.name}
@@ -573,14 +573,14 @@ export const SFTPView: React.FC = () => {
 
             <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {deleteModalItem.type === 'directory'
-                ? `Ви збираєтесь безповоротно видалити директорію "${deleteModalItem.name}" та весь її внутрішній вміст.`
-                : `Ви збираєтесь видалити файл "${deleteModalItem.name}". Цю дію неможливо скасувати.`}
+                ? t('sftp.deleteFolderWarning', { name: deleteModalItem.name })
+                : t('sftp.deleteFileWarning', { name: deleteModalItem.name })}
             </p>
 
             {deleteModalItem.type === 'directory' && (
               <div className="space-y-1.5">
                 <label className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Введіть назву <strong className="font-mono text-zinc-900 dark:text-zinc-100">{deleteModalItem.name}</strong> для підтвердження:
+                  {t('sftp.typeFolderName', { name: deleteModalItem.name })}
                 </label>
                 <input
                   type="text"
@@ -601,7 +601,7 @@ export const SFTPView: React.FC = () => {
                 }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -609,7 +609,7 @@ export const SFTPView: React.FC = () => {
                 onClick={confirmDelete}
                 className="px-4 py-1.5 rounded-lg text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Видалити
+                {t('common.delete')}
               </button>
             </div>
           </div>

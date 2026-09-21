@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { useLanguage } from './LanguageContext';
 import type {
   ProxmoxServerConfig,
   ProxmoxNode,
@@ -81,6 +82,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useLanguage();
   const [servers, setServers] = useState<ProxmoxServerConfig[]>([]);
   const [activeServer, setActiveServer] = useState<ProxmoxServerConfig | null>(null);
   const [nodes, setNodes] = useState<ProxmoxNode[]>([]);
@@ -174,8 +176,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const prevStatus = prevVMStatusesRef.current.get(vm.vmid);
           if (prevStatus === 'running' && vm.status === 'stopped') {
             window.api?.system?.showNotification?.(
-              'Зміна стану ВМ',
-              `Віртуальна машина "${vm.name || vm.vmid}" (${vm.vmid}) зупинилась або зазнала аварійного збою.`,
+              t('common.vmStateChanged'),
+              t('common.vmStoppedAlert', { name: vm.name || vm.vmid, vmid: vm.vmid }),
               'warning'
             );
           }
@@ -256,7 +258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     } catch (e: any) {
       if (!isSilent) {
-        setError(e.message || 'Помилка підключення до Proxmox');
+        setError(e.message || t('common.proxmoxConnectError'));
       }
     } finally {
       if (!isSilent) {
@@ -416,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newTab: TerminalTab = {
       id: tabId,
-      title: `Вузол: ${nodeName}`,
+      title: t('common.nodeShellTitle', { node: nodeName }),
       node: nodeName,
       serverId: activeServer?.id,
       connectionType: 'ssh',
@@ -763,7 +765,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       : null;
 
-    if (!profile || !profile.host) return { success: false, error: 'Не знайдено SSH доступ для цієї ВМ' };
+    if (!profile || !profile.host) return { success: false, error: t('common.sshAccessNotFound') };
 
     try {
       if (window.api?.updates?.installUpdate) {
@@ -803,7 +805,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return { success: false, error: res.error };
       }
-      return { success: false, error: 'API оновлень недоступне' };
+      return { success: false, error: t('common.updatesApiUnavailable') };
     } catch (err: any) {
       return { success: false, error: err.message };
     }
@@ -830,7 +832,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         : null;
 
-      if (!profile || !profile.host) return { success: false, error: 'Не знайдено SSH профіль для цієї ВМ' };
+      if (!profile || !profile.host) return { success: false, error: t('common.sshProfileNotFound') };
 
       try {
         if (window.api?.updates?.installAllSafeUpdates) {
@@ -866,9 +868,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             return { success: true, installedCount: newlyInstalled.length };
           }
-          return { success: false, error: res.error || 'Не вдалося встановити оновлення' };
+          return { success: false, error: res.error || t('common.installUpdateFailed') };
         }
-        return { success: false, error: 'API оновлень недоступне' };
+        return { success: false, error: t('common.updatesApiUnavailable') };
       } catch (err: any) {
         return { success: false, error: err.message };
       }

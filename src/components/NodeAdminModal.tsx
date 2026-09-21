@@ -31,6 +31,7 @@ import {
   Box,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type {
   ProxmoxNodeStorage,
   ProxmoxNodeDisk,
@@ -56,6 +57,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
   nodeName,
   onOpenTerminal,
 }) => {
+  const { t } = useLanguage();
   const { activeServer, sshProfiles, refreshClusterData } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
@@ -346,7 +348,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
           autostart: networkModal.autostart,
           comments: networkModal.comments.trim() || undefined,
         });
-        setCrudActionStatus({ type: 'success', text: `Інтерфейс ${networkModal.iface} успішно створено (зміни очікують застосування)` });
+        setCrudActionStatus({ type: 'success', text: t('nodeAdmin.ifaceCreatedSuccess', { iface: networkModal.iface }) });
       } else {
         await window.api.proxmox.updateNodeNetwork(activeServer, nodeName, networkModal.iface, {
           cidr: networkModal.cidr.trim() || undefined,
@@ -355,37 +357,37 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
           autostart: networkModal.autostart,
           comments: networkModal.comments.trim() || undefined,
         });
-        setCrudActionStatus({ type: 'success', text: `Конфігурацію ${networkModal.iface} оновлено (зміни очікують застосування)` });
+        setCrudActionStatus({ type: 'success', text: t('nodeAdmin.ifaceUpdatedSuccess', { iface: networkModal.iface }) });
       }
       setNetworkModal((prev) => ({ ...prev, isOpen: false }));
       setNetworkPendingChanges(true);
       await loadNetwork();
     } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка збереження мережевого інтерфейсу' });
+      setCrudActionStatus({ type: 'error', text: err.message || t.nodeAdmin.ifaceSaveError });
     }
   };
 
   const handleDeleteNetwork = async (iface: string) => {
     if (!activeServer || !nodeName) return;
     if (iface === 'vmbr0') {
-      setCrudActionStatus({ type: 'error', text: 'Видалення головного інтерфейсу керування (vmbr0) заблоковано задля безпеки вузла' });
+      setCrudActionStatus({ type: 'error', text: t.nodeAdmin.vmbr0DeleteBlocked });
       return;
     }
     setDangerModal({
       isOpen: true,
-      title: `Видалення мережевого інтерфейсу ${iface}`,
-      description: `Ви збираєтесь позначити мережевий інтерфейс ${iface} для видалення. Якщо це активний міст або фізичний порт, хост може втратити зв'язок.`,
+      title: t('nodeAdmin.deleteIfaceTitle', { iface }),
+      description: t('nodeAdmin.deleteIfaceDesc', { iface }),
       targetName: iface,
       actionType: 'delete-network',
       expectedConfirmText: iface,
       onConfirm: async () => {
         try {
           await window.api.proxmox.deleteNodeNetwork(activeServer, nodeName, iface);
-          setCrudActionStatus({ type: 'success', text: `Інтерфейс ${iface} позначено для видалення` });
+          setCrudActionStatus({ type: 'success', text: t('nodeAdmin.ifaceMarkedDeleted', { iface }) });
           setNetworkPendingChanges(true);
           await loadNetwork();
         } catch (err: any) {
-          setCrudActionStatus({ type: 'error', text: err.message || 'Не вдалося видалити інтерфейс' });
+          setCrudActionStatus({ type: 'error', text: err.message || t.nodeAdmin.ifaceDeleteError });
         }
       },
     });
@@ -395,8 +397,8 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (!activeServer || !nodeName) return;
     setDangerModal({
       isOpen: true,
-      title: 'Застосування конфігурації мережі',
-      description: `Увага! Перезавантаження мережевого стеку (ifupdown2 reload) вузла "${nodeName}". У разі помилкових IP або шлюзів зв'язок із сервером буде повністю втрачено!`,
+      title: t.nodeAdmin.applyNetworkTitle,
+      description: t('nodeAdmin.applyNetworkDesc', { node: nodeName }),
       targetName: nodeName,
       actionType: 'apply-network',
       expectedConfirmText: nodeName,
@@ -405,12 +407,12 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         try {
           const res = await window.api.proxmox.applyNodeNetworkChanges(activeServer, nodeName);
           if (res.success) {
-            setCrudActionStatus({ type: 'success', text: 'Зміни конфігурації мережі успішно застосовано!' });
+            setCrudActionStatus({ type: 'success', text: t.nodeAdmin.networkAppliedSuccess });
             setNetworkPendingChanges(false);
             await loadNetwork();
           }
         } catch (err: any) {
-          setCrudActionStatus({ type: 'error', text: err.message || 'Помилка застосування змін мережі' });
+          setCrudActionStatus({ type: 'error', text: err.message || t.nodeAdmin.networkApplyError });
         } finally {
           setApplyingNetwork(false);
         }
@@ -422,11 +424,11 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (!activeServer || !nodeName) return;
     try {
       await window.api.proxmox.revertNodeNetworkChanges(activeServer, nodeName);
-      setCrudActionStatus({ type: 'success', text: 'Усі незбережені зміни мережі скасовано' });
+      setCrudActionStatus({ type: 'success', text: t.nodeAdmin.networkRevertedSuccess });
       setNetworkPendingChanges(false);
       await loadNetwork();
     } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка скасування змін мережі' });
+      setCrudActionStatus({ type: 'error', text: err.message || t.nodeAdmin.networkRevertError });
     }
   };
 
@@ -445,11 +447,11 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         thinpool: storageModal.type === 'lvmthin' ? storageModal.thinpool.trim() : undefined,
         vgname: storageModal.type === 'lvmthin' ? storageModal.vgname.trim() : undefined,
       });
-      setCrudActionStatus({ type: 'success', text: `Сховище ${storageModal.storage} успішно підключено` });
+      setCrudActionStatus({ type: 'success', text: t('nodeAdmin.storageConnectedSuccess', { name: storageModal.storage }) });
       setStorageModal((prev) => ({ ...prev, isOpen: false }));
       await loadStorageAndDisks();
     } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Не вдалося створити сховище' });
+      setCrudActionStatus({ type: 'error', text: err.message || t('nodeAdmin.storageCreateError') });
     }
   };
 
@@ -460,7 +462,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (storageId === 'local' || storageId === 'local-lvm') {
       setCrudActionStatus({
         type: 'error',
-        text: `Заборонено: сховище "${storageId}" є системним ядром Proxmox VE і не може бути видалене для запобігання відмові системи.`,
+        text: t('nodeAdmin.storageDeleteBlocked', { name: storageId }),
       });
       return;
     }
@@ -468,18 +470,18 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     setDangerInputText('');
     setDangerModal({
       isOpen: true,
-      title: 'Видалення сховища кластера',
+      title: t('nodeAdmin.deleteStorageTitle'),
       actionType: 'delete-storage',
       targetName: storageId,
       expectedConfirmText: storageId,
-      description: `Ви збираєтеся видалити конфігурацію сховища "${storageId}" з кластера Proxmox. Всі віртуальні машини, які використовують цей пул для дисків, втратять доступ до образів.`,
+      description: t('nodeAdmin.deleteStorageDesc', { name: storageId }),
       onConfirm: async () => {
         try {
           await window.api.proxmox.deleteStorage(activeServer, storageId);
-          setCrudActionStatus({ type: 'success', text: `Сховище ${storageId} успішно видалено з кластера` });
+          setCrudActionStatus({ type: 'success', text: t('nodeAdmin.storageDeletedSuccess', { name: storageId }) });
           await loadStorageAndDisks();
         } catch (err: any) {
-          setCrudActionStatus({ type: 'error', text: err.message || 'Помилка видалення сховища' });
+          setCrudActionStatus({ type: 'error', text: err.message || t('nodeAdmin.storageDeleteError') });
         }
       },
     });
@@ -493,26 +495,26 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     setDangerInputText('');
     setDangerModal({
       isOpen: true,
-      title: isWipe ? 'Очищення диска (Wipe Disk)' : 'Ініціалізація GPT розмітки',
+      title: isWipe ? t('nodeAdmin.wipeDiskTitle') : t('nodeAdmin.initGptTitle'),
       actionType: isWipe ? 'wipe-disk' : 'init-gpt',
       targetName: devpath,
       targetPath: devpath,
       expectedConfirmText: baseDevName,
       description: isWipe
-        ? `КРИТИЧНО НЕБЕЗПЕЧНА ДІЯ: Буде повністю стерто таблицю розділів і всі сигнатури томів на фізичному пристрої ${devpath}. Будь-які дані на диску буде БЕЗПОВОРОТНО знищено!`
-        : `На диску ${devpath} буде створено нову розмітку таблиці розділів GPT. Попередні існуючі дані або розділи будуть видалені.`,
+        ? t('nodeAdmin.wipeDiskWarning', { dev: devpath })
+        : t('nodeAdmin.initGptWarning', { dev: devpath }),
       onConfirm: async () => {
         try {
           if (isWipe) {
             const res = await window.api.proxmox.wipeDisk(activeServer, nodeName, devpath);
-            setCrudActionStatus({ type: 'success', text: `Очищення диска ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
+            setCrudActionStatus({ type: 'success', text: t('nodeAdmin.wipeDiskStarted', { dev: devpath, task: res.taskId || 'OK' }) });
           } else {
             const res = await window.api.proxmox.initGptDisk(activeServer, nodeName, devpath);
-            setCrudActionStatus({ type: 'success', text: `Ініціалізацію GPT для ${devpath} запущено (Task: ${res.taskId || 'OK'})` });
+            setCrudActionStatus({ type: 'success', text: t('nodeAdmin.initGptStarted', { dev: devpath, task: res.taskId || 'OK' }) });
           }
           await loadStorageAndDisks();
         } catch (err: any) {
-          setCrudActionStatus({ type: 'error', text: err.message || 'Помилка виконання операції над диском' });
+          setCrudActionStatus({ type: 'error', text: err.message || t('nodeAdmin.diskOpError') });
         }
       },
     });
@@ -556,12 +558,12 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
       });
       setCrudActionStatus({
         type: 'success',
-        text: `Віртуальну машину #${createVMModal.vmid} успішно створено на ${nodeName}! (Task: ${res.taskId || 'OK'})`,
+        text: t('nodeAdmin.vmCreatedSuccess', { vmid: createVMModal.vmid, node: nodeName, task: res.taskId || 'OK' }),
       });
       setCreateVMModal((prev) => ({ ...prev, isOpen: false }));
       await refreshClusterData();
     } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка створення віртуальної машини' });
+      setCrudActionStatus({ type: 'error', text: err.message || t('nodeAdmin.vmCreateError') });
     }
   };
 
@@ -627,12 +629,12 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
       });
       setCrudActionStatus({
         type: 'success',
-        text: `Контейнер #${createCTModal.vmid} успішно створено на ${nodeName}! (Task: ${res.taskId || 'OK'})`,
+        text: t('nodeAdmin.ctCreatedSuccess', { vmid: createCTModal.vmid, node: nodeName, task: res.taskId || 'OK' }),
       });
       setCreateCTModal((prev) => ({ ...prev, isOpen: false }));
       await refreshClusterData();
     } catch (err: any) {
-      setCrudActionStatus({ type: 'error', text: err.message || 'Помилка створення контейнера' });
+      setCrudActionStatus({ type: 'error', text: err.message || t('nodeAdmin.ctCreateError') });
     }
   };
 
@@ -671,7 +673,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         const lines = await window.api.proxmox.getNodeTaskLog(activeServer, nodeName, upid);
         setTaskLog(lines);
       } catch {
-        setTaskLog(['Помилка завантаження логу завдання']);
+        setTaskLog([t('nodeAdmin.taskLogLoadError')]);
       } finally {
         setLoadingTaskLog(false);
       }
@@ -691,7 +693,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     } catch (err: any) {
       setUpdateStatusMsg({
         type: 'error',
-        text: err.message || 'Не вдалося отримати список оновлень Proxmox',
+        text: err.message || t('nodeAdmin.pveUpdatesError'),
       });
     } finally {
       setLoadingUpdates(false);
@@ -708,20 +710,20 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         if (res.success) {
           setUpdateStatusMsg({
             type: 'success',
-            text: 'Запит apt update відправлено. Оновлення списку пакетів...',
+            text: t('nodeAdmin.aptUpdateStarted'),
           });
           setTimeout(loadUpdates, 3000);
         } else {
           setUpdateStatusMsg({
             type: 'error',
-            text: res.error || 'Не вдалося оновити списки репозиторіїв',
+            text: res.error || t('nodeAdmin.aptUpdateFailed'),
           });
         }
       }
     } catch (err: any) {
       setUpdateStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка виконання apt update',
+        text: err.message || t('nodeAdmin.aptUpdateError'),
       });
     } finally {
       setRefreshingRepo(false);
@@ -732,7 +734,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (!effectiveProfile) {
       setUpdateStatusMsg({
         type: 'error',
-        text: 'Не знайдено SSH інформації про хост Proxmox.',
+        text: t('nodeAdmin.hostSshInfoMissing'),
       });
       return;
     }
@@ -755,7 +757,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
         if (res.success) {
           setUpdateStatusMsg({
             type: 'success',
-            text: `Пакет ${pkgName} успішно оновлено!`,
+            text: t('nodeAdmin.pkgUpdatedSuccess', { pkg: pkgName }),
           });
           setUpdates((prev) => prev.filter((u) => u.package !== pkgName));
         } else {
@@ -768,14 +770,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
           }
           setUpdateStatusMsg({
             type: 'error',
-            text: res.error || `Не вдалося встановити ${pkgName}`,
+            text: res.error || t('nodeAdmin.pkgUpdateFailed', { pkg: pkgName }),
           });
         }
       }
     } catch (err: any) {
       setUpdateStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка оновлення пакета',
+        text: err.message || t('nodeAdmin.pkgUpdateError'),
       });
     } finally {
       setInstallingPkg(null);
@@ -786,7 +788,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (!effectiveProfile) {
       setUpdateStatusMsg({
         type: 'error',
-        text: 'Не знайдено інформації про хост Proxmox.',
+        text: t('nodeAdmin.hostSshInfoMissing'),
       });
       return;
     }
@@ -795,7 +797,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (safePkgs.length === 0) {
       setUpdateStatusMsg({
         type: 'error',
-        text: 'Немає доступних безпечних оновлень (залишились лише оновлення ядра/завантажувача).',
+        text: t('nodeAdmin.noSafeUpdatesRemaining'),
       });
       return;
     }
@@ -838,11 +840,11 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             successCount++;
             setUpdates((prev) => prev.filter((u) => u.package !== pkg));
           } else {
-            errors.push(`${pkg}: ${res.error || 'помилка'}`);
+            errors.push(`${pkg}: ${res.error || 'error'}`);
           }
         }
       } catch (err: any) {
-        errors.push(`${pkg}: ${err.message || 'збій'}`);
+        errors.push(`${pkg}: ${err.message || 'error'}`);
       }
     }
 
@@ -852,12 +854,12 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
     if (errors.length === 0) {
       setUpdateStatusMsg({
         type: 'success',
-        text: `Успішно оновлено всі безпечні пакети (${successCount})!`,
+        text: t('nodeAdmin.safePackagesUpdatedAll', { count: successCount }),
       });
     } else {
       setUpdateStatusMsg({
         type: 'error',
-        text: `Оновлено: ${successCount}. Помилки у пакетах: ${errors.join(', ')}`,
+        text: t('nodeAdmin.updatedCountWithErrors', { count: successCount, errors: errors.join(', ') }),
       });
     }
   };
@@ -931,7 +933,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Адміністрування вузла: {nodeName}
+                  {t('nodeAdmin.title', { node: nodeName })}
                 </h3>
                 <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
                   PVE Host
@@ -947,27 +949,27 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <button
               onClick={handleOpenCreateVM}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
-              title="Створити нову віртуальну машину (QEMU KVM) на цьому вузлі"
+              title={t('nodeAdmin.createVmTitleTooltip')}
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Створити ВМ</span>
+              <span>{t('nodeAdmin.createVm')}</span>
             </button>
             <button
               onClick={handleOpenCreateCT}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
-              title="Створити новий контейнер (LXC / Docker) на цьому вузлі"
+              title={t('nodeAdmin.createCtTitleTooltip')}
             >
               <Box className="w-3.5 h-3.5" />
-              <span>Створити CT</span>
+              <span>{t('nodeAdmin.createCt')}</span>
             </button>
             {onOpenTerminal && (
               <button
                 onClick={onOpenTerminal}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
-                title="Відкрити інтерактивний Shell термінал вузла"
+                title={t('nodeAdmin.openShellTooltip')}
               >
                 <Terminal className="w-3.5 h-3.5" />
-                <span>Shell хоста</span>
+                <span>{t('nodeAdmin.hostShell')}</span>
               </button>
             )}
             <button
@@ -990,7 +992,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             }`}
           >
             <Activity className="w-4 h-4" />
-            <span>Статус та ядро</span>
+            <span>{t('nodeAdmin.statusAndKernel')}</span>
           </button>
 
           <button
@@ -1002,7 +1004,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             }`}
           >
             <HardDrive className="w-4 h-4" />
-            <span>Сховища та диски ({storages.length + disks.length})</span>
+            <span>{t('nodeAdmin.storageAndDisksCount', { count: storages.length + disks.length })}</span>
           </button>
 
           <button
@@ -1014,7 +1016,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             }`}
           >
             <Network className="w-4 h-4" />
-            <span>Мережеві мости ({networks.length})</span>
+            <span>{t('nodeAdmin.networkBridgesCount', { count: networks.length })}</span>
           </button>
 
           <button
@@ -1027,7 +1029,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
           >
             <ArrowUpCircle className="w-4 h-4 text-amber-500" />
             <div className="flex items-center gap-1.5">
-              <span>Оновлення (APT)</span>
+              <span>{t('nodeAdmin.updatesApt')}</span>
               {updates.length > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white leading-tight">
                   {updates.length}
@@ -1045,7 +1047,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>Завдання кластера ({tasks.length})</span>
+            <span>{t('nodeAdmin.clusterTasksCount', { count: tasks.length })}</span>
           </button>
 
           <button
@@ -1057,7 +1059,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>Системний журнал (Syslog)</span>
+            <span>{t('nodeAdmin.syslog')}</span>
           </button>
         </div>
 
@@ -1096,7 +1098,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               {loadingStatus ? (
                 <div className="py-20 flex items-center justify-center gap-2 text-zinc-400 text-xs">
                   <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-                  <span>Завантаження інформації про статус вузла...</span>
+                  <span>{t('nodeAdmin.loadingNodeStatus')}</span>
                 </div>
               ) : (
                 <>
@@ -1113,7 +1115,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       return (
                         <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
                           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                            <span>Завантаження CPU</span>
+                            <span>{t('nodeAdmin.cpuLoadTitle')}</span>
                             <Cpu className="w-4 h-4 text-blue-500" />
                           </div>
                           <div className="mt-2 flex items-baseline gap-2">
@@ -1128,9 +1130,9 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                               style={{ width: `${Math.min(cpuVal, 100)}%` }}
                             />
                           </div>
-                          <p className="mt-2.5 text-[11px] text-zinc-500 truncate" title={nodeStatus?.cpuinfo?.model || 'Процесор хоста'}>
+                          <p className="mt-2.5 text-[11px] text-zinc-500 truncate" title={nodeStatus?.cpuinfo?.model || t('nodeAdmin.hostCpu')}>
                             {nodeStatus?.cpuinfo?.cpus ? `${nodeStatus.cpuinfo.cpus} CPU cores • ` : ''}
-                            {nodeStatus?.cpuinfo?.model || 'Завантаження ядер вузла'}
+                            {nodeStatus?.cpuinfo?.model || t('nodeAdmin.loadingCores')}
                           </p>
                         </div>
                       );
@@ -1145,7 +1147,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       return (
                         <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
                           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                            <span>Оперативна пам'ять (RAM)</span>
+                            <span>{t('nodeAdmin.ram')}</span>
                             <Activity className="w-4 h-4 text-emerald-500" />
                           </div>
                           <div className="mt-2 flex items-baseline gap-2">
@@ -1162,7 +1164,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             />
                           </div>
                           <p className="mt-2.5 text-[11px] text-zinc-500">
-                            Використано {memPct}% від загального обсягу пам'яті
+                            {t('nodeAdmin.ramUsedPct', { pct: memPct })}
                           </p>
                         </div>
                       );
@@ -1177,7 +1179,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       return (
                         <div className="p-4 rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 shadow-xs">
                           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                            <span>Файл підкачки (SWAP)</span>
+                            <span>{t('nodeAdmin.swap')}</span>
                             <Layers className="w-4 h-4 text-indigo-500" />
                           </div>
                           <div className="mt-2 flex items-baseline gap-2">
@@ -1194,7 +1196,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             />
                           </div>
                           <p className="mt-2.5 text-[11px] text-zinc-500">
-                            {swapTotal > 0 ? `Використано ${swapPct}% swap простору` : 'SWAP не налаштовано'}
+                            {swapTotal > 0 ? t('nodeAdmin.swapUsedPct', { pct: swapPct }) : t('nodeAdmin.swapNotConfigured')}
                           </p>
                         </div>
                       );
@@ -1204,7 +1206,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   {/* System & Kernel Detailed Table */}
                   <div className="rounded-xl bg-white dark:bg-[#1E1E20] border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
                     <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 font-semibold text-xs text-zinc-700 dark:text-zinc-200 flex items-center justify-between">
-                      <span>Системні відомості ядра та версій</span>
+                      <span>{t('nodeAdmin.systemDetails')}</span>
                       <button
                         onClick={loadOverview}
                         className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"
@@ -1214,21 +1216,21 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     </div>
                     <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 text-xs font-mono">
                       <div className="px-5 py-2.5 flex justify-between">
-                        <span className="text-zinc-500">Версія PVE Manager:</span>
+                        <span className="text-zinc-500">{t('nodeAdmin.pveManagerVersion')}</span>
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200">{nodeStatus?.pveversion || 'Proxmox VE'}</span>
                       </div>
                       <div className="px-5 py-2.5 flex justify-between">
-                        <span className="text-zinc-500">Версія ядра Linux (Kernel):</span>
+                        <span className="text-zinc-500">{t('nodeAdmin.kernelVersionLabel')}</span>
                         <span className="text-zinc-800 dark:text-zinc-200">{nodeStatus?.kversion || '—'}</span>
                       </div>
                       <div className="px-5 py-2.5 flex justify-between">
-                        <span className="text-zinc-500">Uptime вузла:</span>
+                        <span className="text-zinc-500">{t('nodeAdmin.nodeUptime')}</span>
                         <span className="text-zinc-800 dark:text-zinc-200">
-                          {nodeStatus?.uptime ? `${Math.floor(nodeStatus.uptime / 86400)}д ${Math.floor((nodeStatus.uptime % 86400) / 3600)}г` : '—'}
+                          {nodeStatus?.uptime ? `${Math.floor(nodeStatus.uptime / 86400)}${t('common.daysShort')} ${Math.floor((nodeStatus.uptime % 86400) / 3600)}${t('common.hoursShort')}` : '—'}
                         </span>
                       </div>
                       <div className="px-5 py-2.5 flex justify-between">
-                        <span className="text-zinc-500">Середнє навантаження (Load Average):</span>
+                        <span className="text-zinc-500">{t('nodeAdmin.loadAverage')}</span>
                         <span className="text-zinc-800 dark:text-zinc-200">
                           {Array.isArray(nodeStatus?.loadavg) ? nodeStatus.loadavg.join(', ') : '—'}
                         </span>
@@ -1259,7 +1261,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Database className="w-4 h-4 text-blue-500" />
                     <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                      Сховища кластера (PVE Storage Pools)
+                      {t('nodeAdmin.clusterStoragePools')}
                     </h4>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1278,7 +1280,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
                     >
                       <FolderPlus className="w-3.5 h-3.5" />
-                      <span>Додати сховище</span>
+                      <span>{t('nodeAdmin.addStorageBtn')}</span>
                     </button>
                     <button
                       onClick={loadStorageAndDisks}
@@ -1293,13 +1295,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
                       <tr>
-                        <th className="px-4 py-2.5 font-medium">Статус</th>
-                        <th className="px-4 py-2.5 font-medium">Сховище</th>
-                        <th className="px-4 py-2.5 font-medium">Тип</th>
-                        <th className="px-4 py-2.5 font-medium">Вміст (Content)</th>
-                        <th className="px-4 py-2.5 font-medium">Заповненість</th>
-                        <th className="px-4 py-2.5 font-medium text-right">Вільний простір</th>
-                        <th className="px-4 py-2.5 text-right font-medium">Дії</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableStorageStatus')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableStorageName')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableStorageType')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableStorageContent')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableStorageUsage')}</th>
+                        <th className="px-4 py-2.5 font-medium text-right">{t('nodeAdmin.tableStorageFree')}</th>
+                        <th className="px-4 py-2.5 text-right font-medium">{t('nodeAdmin.tableStorageActions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
@@ -1315,7 +1317,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
                                 }`}
                               >
-                                {s.active ? 'Активне' : 'Вимкнено'}
+                                {s.active ? t('nodeAdmin.storageActive') : t('nodeAdmin.storageDisabled')}
                               </span>
                             </td>
                             <td className="px-4 py-2.5 font-semibold text-zinc-900 dark:text-zinc-100 font-sans">
@@ -1343,15 +1345,15 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                               {s.storage === 'local' || s.storage === 'local-lvm' ? (
                                 <span
                                   className="text-[10px] text-zinc-400 font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 cursor-default"
-                                  title="Системне сховище PVE захищене від видалення"
+                                  title={t('nodeAdmin.storageSystemTooltip')}
                                 >
-                                  Системне
+                                  {t('nodeAdmin.storageSystem')}
                                 </span>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => requestDeleteStorage(s.storage)}
-                                  title="Видалити сховище з кластера (з підтвердженням)"
+                                  title={t('nodeAdmin.storageDeleteTooltip')}
                                   className="p-1 rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -1372,7 +1374,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   <div className="flex items-center gap-2">
                     <HardDrive className="w-4 h-4 text-emerald-500" />
                     <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                      Фізичні диски та SMART стан ({disks.length})
+                      {t('nodeAdmin.disksTitle', { count: disks.length })}
                     </h4>
                   </div>
                 </div>
@@ -1381,14 +1383,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
                       <tr>
-                        <th className="px-4 py-2.5 font-medium">SMART</th>
-                        <th className="px-4 py-2.5 font-medium">Пристрій</th>
-                        <th className="px-4 py-2.5 font-medium">Модель</th>
-                        <th className="px-4 py-2.5 font-medium">Серійний №</th>
-                        <th className="px-4 py-2.5 font-medium">Тип</th>
-                        <th className="px-4 py-2.5 font-medium">Розмір</th>
-                        <th className="px-4 py-2.5 font-medium">Знос / Температура</th>
-                        <th className="px-4 py-2.5 text-right font-medium">Керування</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.health')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableDiskDev')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableDiskModel')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableDiskSerial')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableDiskType')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableDiskSize')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableDiskHealth')}</th>
+                        <th className="px-4 py-2.5 text-right font-medium">{t('nodeAdmin.tableDiskManage')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
@@ -1413,7 +1415,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                             <td className="px-4 py-2.5 text-zinc-500 uppercase">{d.type}</td>
                             <td className="px-4 py-2.5 font-semibold">{formatBytes(d.size)}</td>
                             <td className="px-4 py-2.5 font-sans">
-                              {d.wearout !== undefined ? `Знос: ${d.wearout}%` : ''}
+                              {d.wearout !== undefined ? t('nodeAdmin.diskWearout', { wearout: d.wearout }) : ''}
                               {d.temperature !== undefined ? ` ${d.temperature}°C` : ''}
                               {d.wearout === undefined && d.temperature === undefined ? '—' : ''}
                             </td>
@@ -1422,7 +1424,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => requestDiskAction(d.devpath, 'initgpt')}
-                                  title="Ініціалізувати диск з розміткою GPT (з підтвердженням)"
+                                  title={t('nodeAdmin.initGptTooltip')}
                                   className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] transition-colors cursor-pointer"
                                 >
                                   Init GPT
@@ -1430,7 +1432,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => requestDiskAction(d.devpath, 'wipe')}
-                                  title="Очистити таблицю розділів диска (Wipe Disk) - КРИТИЧНО"
+                                  title={t('nodeAdmin.wipeDiskTooltip')}
                                   className="px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-[11px] transition-colors cursor-pointer"
                                 >
                                   Wipe
@@ -1454,11 +1456,11 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Network className="w-4 h-4 text-blue-500" />
                   <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                    Мережеві інтерфейси вузла (Linux Bridges, Bonds, NICs)
+                    {t('nodeAdmin.networkTitle')}
                   </h4>
                   {networkPendingChanges && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
-                      Є незбережені зміни
+                      {t('nodeAdmin.hasPendingChanges')}
                     </span>
                   )}
                 </div>
@@ -1469,17 +1471,17 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                         onClick={handleApplyNetwork}
                         disabled={applyingNetwork}
                         className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                        title="Застосувати зміни мережевої конфігурації"
+                        title={t('nodeAdmin.applyNetworkTooltip')}
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>{applyingNetwork ? 'Застосування...' : 'Застосувати зміни'}</span>
+                        <span>{applyingNetwork ? t('nodeAdmin.applying') : t('nodeAdmin.applyChanges')}</span>
                       </button>
                       <button
                         onClick={handleRevertNetwork}
                         className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-medium transition-colors cursor-pointer"
-                        title="Скасувати незбережені зміни"
+                        title={t('nodeAdmin.revertChangesTooltip')}
                       >
-                        Скасувати
+                        {t('common.cancel')}
                       </button>
                     </>
                   )}
@@ -1501,7 +1503,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Створити Linux Bridge</span>
+                    <span>{t('nodeAdmin.createBridgeBtn')}</span>
                   </button>
                   <button
                     onClick={loadNetwork}
@@ -1516,14 +1518,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
                     <tr>
-                      <th className="px-4 py-2.5 font-medium">Стан</th>
-                      <th className="px-4 py-2.5 font-medium">Інтерфейс</th>
-                      <th className="px-4 py-2.5 font-medium">Тип</th>
-                      <th className="px-4 py-2.5 font-medium">CIDR / IP адреса</th>
-                      <th className="px-4 py-2.5 font-medium">Шлюз (Gateway)</th>
-                      <th className="px-4 py-2.5 font-medium">Порти мосту (Bridge Ports)</th>
-                      <th className="px-4 py-2.5 font-medium">Коментар</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Дії</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetState')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetIface')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetType')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetIp')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetGateway')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetPorts')}</th>
+                      <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableNetComment')}</th>
+                      <th className="px-4 py-2.5 text-right font-medium">{t('nodeAdmin.tableNetActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
@@ -1565,7 +1567,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                                 autostart: net.autostart !== false,
                                 comments: net.comments || '',
                               })}
-                              title="Редагувати конфігурацію інтерфейсу"
+                              title={t('nodeAdmin.editIfaceTooltip')}
                               className="p-1 rounded text-zinc-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -1574,7 +1576,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                               type="button"
                               disabled={net.iface === 'vmbr0'}
                               onClick={() => handleDeleteNetwork(net.iface)}
-                              title={net.iface === 'vmbr0' ? 'Головний інтерфейс керування захищено від видалення' : 'Видалити інтерфейс'}
+                              title={net.iface === 'vmbr0' ? t('nodeAdmin.vmbr0ProtectTooltip') : t('nodeAdmin.deleteIfaceTooltip')}
                               className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-zinc-400"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1599,7 +1601,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     type="text"
                     value={taskSearch}
                     onChange={(e) => setTaskSearch(e.target.value)}
-                    placeholder="Пошук завдань (qmstart, vzdump, user)..."
+                    placeholder={t('nodeAdmin.searchTasksPlaceholder')}
                     className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1E1E20] text-xs text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
@@ -1608,7 +1610,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 transition-colors cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loadingTasks ? 'animate-spin' : ''}`} />
-                  <span>Оновити задачі</span>
+                  <span>{t('nodeAdmin.refreshTasksBtn')}</span>
                 </button>
               </div>
 
@@ -1617,19 +1619,19 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 sticky top-0">
                       <tr>
-                        <th className="px-4 py-2.5 font-medium">Статус</th>
-                        <th className="px-4 py-2.5 font-medium">Тип операції</th>
-                        <th className="px-4 py-2.5 font-medium">ID сутності</th>
-                        <th className="px-4 py-2.5 font-medium">Користувач</th>
-                        <th className="px-4 py-2.5 font-medium">Час старту</th>
-                        <th className="px-4 py-2.5 text-right font-medium">Лог</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableTaskStatus')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableTaskType')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableTaskId')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableTaskUser')}</th>
+                        <th className="px-4 py-2.5 font-medium">{t('nodeAdmin.tableTaskStart')}</th>
+                        <th className="px-4 py-2.5 text-right font-medium">{t('nodeAdmin.tableTaskLog')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-mono">
-                      {filteredTasks.map((t) => {
-                        const isOk = !t.status || t.status === 'OK';
+                      {filteredTasks.map((taskItem) => {
+                        const isOk = !taskItem.status || taskItem.status === 'OK';
                         return (
-                          <tr key={t.upid} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                          <tr key={taskItem.upid} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                             <td className="px-4 py-2.5">
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -1638,21 +1640,21 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                                     : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400'
                                 }`}
                               >
-                                {t.status || 'OK'}
+                                {taskItem.status || 'OK'}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 font-bold text-zinc-900 dark:text-zinc-100">{t.type}</td>
-                            <td className="px-4 py-2.5 text-blue-600 dark:text-blue-400">{t.id || '—'}</td>
-                            <td className="px-4 py-2.5 text-zinc-500 font-sans">{t.user}</td>
+                            <td className="px-4 py-2.5 font-bold text-zinc-900 dark:text-zinc-100">{taskItem.type}</td>
+                            <td className="px-4 py-2.5 text-blue-600 dark:text-blue-400">{taskItem.id || '—'}</td>
+                            <td className="px-4 py-2.5 text-zinc-500 font-sans">{taskItem.user}</td>
                             <td className="px-4 py-2.5 text-zinc-400 text-[11px]">
-                              {new Date(t.starttime * 1000).toLocaleString()}
+                              {new Date(taskItem.starttime * 1000).toLocaleString()}
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <button
-                                onClick={() => loadSingleTaskLog(t.upid)}
+                                onClick={() => loadSingleTaskLog(taskItem.upid)}
                                 className="px-2.5 py-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 text-[11px] font-sans transition-colors cursor-pointer"
                               >
-                                Переглянути лог
+                                {t('nodeAdmin.viewLogBtn')}
                               </button>
                             </td>
                           </tr>
@@ -1667,13 +1669,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               {selectedTaskUpid && (
                 <div className="p-4 rounded-xl bg-zinc-900 text-zinc-100 border border-zinc-800 font-mono text-xs shadow-lg space-y-2">
                   <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-                    <span className="text-[11px] text-zinc-400 truncate max-w-lg">Лог UPID: {selectedTaskUpid}</span>
+                    <span className="text-[11px] text-zinc-400 truncate max-w-lg">{t('nodeAdmin.logUpid', { upid: selectedTaskUpid })}</span>
                     <button onClick={() => setSelectedTaskUpid(null)} className="text-zinc-400 hover:text-zinc-200">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                   {loadingTaskLog ? (
-                    <div className="py-6 text-center text-zinc-500">Завантаження логу задачі...</div>
+                    <div className="py-6 text-center text-zinc-500">{t('nodeAdmin.loadingTaskLog')}</div>
                   ) : (
                     <div className="max-h-48 overflow-y-auto space-y-0.5 text-[11px] leading-relaxed">
                       {taskLog.map((line, idx) => (
@@ -1697,7 +1699,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       type="text"
                       value={syslogSearch}
                       onChange={(e) => setSyslogSearch(e.target.value)}
-                      placeholder="Фільтр логів хоста..."
+                      placeholder={t('nodeAdmin.filterLogsPlaceholder')}
                       className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1E1E20] text-xs text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none"
                     />
                   </div>
@@ -1706,9 +1708,9 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     onChange={(e: any) => setSyslogFilter(e.target.value)}
                     className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1E1E20] text-xs text-zinc-700 dark:text-zinc-300"
                   >
-                    <option value="all">Усі записи</option>
-                    <option value="warn">Попередження</option>
-                    <option value="error">Лише помилки</option>
+                    <option value="all">{t('nodeAdmin.logsAll')}</option>
+                    <option value="warn">{t('nodeAdmin.logsWarn')}</option>
+                    <option value="error">{t('nodeAdmin.logsError')}</option>
                   </select>
                 </div>
 
@@ -1717,13 +1719,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 transition-colors cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loadingSyslog ? 'animate-spin' : ''}`} />
-                  <span>Оновити Syslog</span>
+                  <span>{t('nodeAdmin.refreshSyslogBtn')}</span>
                 </button>
               </div>
 
               <div className="p-4 rounded-xl bg-zinc-950 text-zinc-200 font-mono text-[11px] border border-zinc-800 shadow-inner max-h-[520px] overflow-y-auto leading-relaxed select-text">
                 {filteredSyslog.length === 0 ? (
-                  <div className="py-12 text-center text-zinc-500">Записів у журналі не знайдено</div>
+                  <div className="py-12 text-center text-zinc-500">{t('nodeAdmin.noSyslogEntries')}</div>
                 ) : (
                   filteredSyslog.map((item, idx) => {
                     const isErr = /error|crit|fail|alert/i.test(item.t);
@@ -1780,20 +1782,20 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                       type="text"
                       value={updateSearch}
                       onChange={(e) => setUpdateSearch(e.target.value)}
-                      placeholder="Пошук пакетів (pve, qemu, kernel...)"
+                      placeholder={t('nodeAdmin.searchPkgsPlaceholder')}
                       className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-[#161618] border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none"
                     />
                   </div>
 
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Безпечні: {safeCount}</span>
+                    <span>{t('nodeAdmin.safePkgsCount', { count: safeCount })}</span>
                   </span>
 
                   {rebootCount > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
                       <ShieldAlert className="w-3.5 h-3.5" />
-                      <span>Потребують рестарту (ядро): {rebootCount}</span>
+                      <span>{t('nodeAdmin.rebootPkgsCount', { count: rebootCount })}</span>
                     </span>
                   )}
                 </div>
@@ -1804,10 +1806,10 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     onClick={handleRefreshRepo}
                     disabled={refreshingRepo}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
-                    title="Оновити список пакетів з репозиторіїв (apt update)"
+                    title={t('nodeAdmin.aptUpdateTooltip')}
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${refreshingRepo ? 'animate-spin text-amber-500' : ''}`} />
-                    <span>{refreshingRepo ? 'Оновлення індексу...' : 'apt update'}</span>
+                    <span>{refreshingRepo ? t('nodeAdmin.refreshingRepoIndex') : 'apt update'}</span>
                   </button>
 
                   {safeCount > 0 && (
@@ -1821,13 +1823,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                         <>
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                           <span>
-                            Оновлення {batchProgress.current}/{batchProgress.total} ({batchProgress.percent}%)...
+                            {t('vmDetail.installingPkgProgress', { current: batchProgress.current, total: batchProgress.total, name: batchProgress.currentPackage })} ({batchProgress.percent}%)...
                           </span>
                         </>
                       ) : (
                         <>
                           <Download className={`w-3.5 h-3.5 ${installingAllSafe ? 'animate-bounce' : ''}`} />
-                          <span>{installingAllSafe ? 'Встановлення...' : `Встановити безпечні (${safeCount})`}</span>
+                          <span>{installingAllSafe ? t('nodeAdmin.installingCount') : t('nodeAdmin.installSafeCount', { count: safeCount })}</span>
                         </>
                       )}
                     </button>
@@ -1840,7 +1842,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1E1E20] shadow-xs">
                   <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                      Встановлення {batchProgress.current} з {batchProgress.total}:{' '}
+                      {t('vmDetail.installingPkgProgress', { current: batchProgress.current, total: batchProgress.total, name: '' })}{' '}
                       <code className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
                         {batchProgress.currentPackage}
                       </code>
@@ -1863,16 +1865,16 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 {loadingUpdates && updates.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-3">
                     <RefreshCw className="w-7 h-7 animate-spin text-amber-500" />
-                    <span className="text-xs">Перевірка доступних оновлень Proxmox...</span>
+                    <span className="text-xs">{t('nodeAdmin.checkingUpdates')}</span>
                   </div>
                 ) : filteredUpdates.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-14 text-zinc-400 text-xs gap-2">
                     <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                     <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                      Всі пакети оновлено до актуальної версії!
+                      {t('nodeAdmin.allPackagesUpToDate')}
                     </span>
                     <span className="text-[11px] text-zinc-400">
-                      Для перевірки нових релізів натисніть «apt update».
+                      {t('nodeAdmin.pressAptUpdate')}
                     </span>
                   </div>
                 ) : (
@@ -1900,7 +1902,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                               </span>
                               {isDanger && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-medium shrink-0">
-                                  Ядро / Рестарт
+                                  {t('nodeAdmin.kernelRestart')}
                                 </span>
                               )}
                             </div>
@@ -1928,10 +1930,10 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                           onClick={() => handleInstallSingle(pkg.package)}
                           disabled={isInstallingThis || !effectiveProfile || batchProgress !== null}
                           className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs shrink-0"
-                          title="Встановити це оновлення"
+                          title={t('nodeAdmin.installThisUpdate')}
                         >
                           <Download className={`w-3.5 h-3.5 ${isInstallingThis ? 'animate-bounce text-amber-500' : ''}`} />
-                          <span>{isInstallingThis ? 'Встановлення...' : 'Оновити'}</span>
+                          <span>{isInstallingThis ? t('nodeAdmin.installingCount') : t('vmDetail.updatePkg')}</span>
                         </button>
                       </div>
                     );
@@ -1955,9 +1957,9 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Потрібен пароль хоста</h3>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t('nodeAdmin.hostPasswordTitle')}</h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Для автентифікації на вузлі через SSH
+                  {t('nodeAdmin.hostPasswordDesc')}
                 </p>
               </div>
             </div>
@@ -1974,14 +1976,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             >
               <div>
                 <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Пароль ({effectiveProfile?.username || 'root'}@{effectiveProfile?.host || activeServer?.host})
+                  {t('nodeAdmin.hostPasswordLabel', { user: effectiveProfile?.username || 'root', host: effectiveProfile?.host || activeServer?.host || '' })}
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="password"
                     autoFocus
-                    placeholder="Введіть пароль root/SSH хоста"
+                    placeholder={t('nodeAdmin.hostPasswordPlaceholder')}
                     value={tempPasswordInput}
                     onChange={(e) => setTempPasswordInput(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:border-amber-500 dark:focus:border-amber-400 text-zinc-900 dark:text-zinc-100 font-mono"
@@ -1995,14 +1997,14 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   onClick={() => setPasswordModal({ isOpen: false, callback: async () => {} })}
                   className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors font-medium cursor-pointer"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={!tempPasswordInput.trim()}
                   className="px-4 py-1.5 rounded-lg text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  Підтвердити
+                  {t('common.confirm')}
                 </button>
               </div>
             </form>
@@ -2017,7 +2019,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
                 <Plus className="w-4 h-4 text-blue-500" />
-                <span>Створити віртуальну машину (QEMU) на {nodeName}</span>
+                <span>{t('nodeAdmin.createVmModalTitle', { node: nodeName })}</span>
               </div>
               <button
                 onClick={() => setCreateVMModal((prev) => ({ ...prev, isOpen: false }))}
@@ -2040,7 +2042,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Назва машини *</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.vmNameLabel')}</label>
                   <input
                     type="text"
                     required
@@ -2054,7 +2056,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Ядра CPU (Cores)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.coresLabel')}</label>
                   <input
                     type="number"
                     min={1}
@@ -2065,7 +2067,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">RAM (МБ)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.ramMbLabel')}</label>
                   <input
                     type="number"
                     min={512}
@@ -2079,7 +2081,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Сховище диска</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.diskStorageLabel')}</label>
                   <select
                     value={createVMModal.storage}
                     onChange={(e) => setCreateVMModal((prev) => ({ ...prev, storage: e.target.value }))}
@@ -2093,7 +2095,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Розмір диска (ГБ)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.diskSizeLabel')}</label>
                   <input
                     type="number"
                     min={4}
@@ -2105,7 +2107,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Мережевий міст (Bridge)</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.bridgeLabel')}</label>
                 <select
                   value={createVMModal.bridge}
                   onChange={(e) => setCreateVMModal((prev) => ({ ...prev, bridge: e.target.value }))}
@@ -2128,7 +2130,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   className="rounded text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="startVmAfterCreate" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
-                  Запустити ВМ одразу після створення
+                  {t('nodeAdmin.startVmAfterCreate')}
                 </label>
               </div>
 
@@ -2138,13 +2140,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   onClick={() => setCreateVMModal((prev) => ({ ...prev, isOpen: false }))}
                   className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
                 >
-                  Створити ВМ
+                  {t('nodeAdmin.createVm')}
                 </button>
               </div>
             </form>
@@ -2159,7 +2161,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
                 <Box className="w-4 h-4 text-indigo-500" />
-                <span>Створити контейнер (LXC / Docker) на {nodeName}</span>
+                <span>{t('nodeAdmin.createCtModal.title', { node: nodeName })}</span>
               </div>
               <button
                 onClick={() => setCreateCTModal((prev) => ({ ...prev, isOpen: false }))}
@@ -2172,7 +2174,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <form onSubmit={handleCreateCT} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">CT ID *</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.ctId')} *</label>
                   <input
                     type="number"
                     required
@@ -2182,7 +2184,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Hostname / Назва *</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.hostname')} *</label>
                   <input
                     type="text"
                     required
@@ -2197,8 +2199,8 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               {/* Template selection */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-medium text-zinc-700 dark:text-zinc-300">Шаблон ОС (vztmpl)</label>
-                  {loadingTemplates && <span className="text-[10px] text-zinc-400">Пошук шаблонів...</span>}
+                  <label className="font-medium text-zinc-700 dark:text-zinc-300">{t('nodeAdmin.createCtModal.template')}</label>
+                  {loadingTemplates && <span className="text-[10px] text-zinc-400">{t('common.loading')}</span>}
                 </div>
                 {availableTemplates.length > 0 ? (
                   <select
@@ -2221,19 +2223,16 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono text-[11px]"
                   />
                 )}
-                <p className="text-[10px] text-zinc-400 mt-1">
-                  Образ контейнера у сховищі Proxmox (наприклад, Ubuntu, Debian або Alpine).
-                </p>
               </div>
 
               {/* Password */}
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Пароль root</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.rootPassword')}</label>
                 <input
                   type="password"
                   value={createCTModal.password}
                   onChange={(e) => setCreateCTModal((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Введіть пароль для входу в контейнер"
+                  placeholder={t('nodeAdmin.createCtModal.rootPassword')}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 />
               </div>
@@ -2241,7 +2240,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               {/* Resources: CPU, RAM, Swap */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Ядра CPU</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.cores')}</label>
                   <input
                     type="number"
                     min={1}
@@ -2252,7 +2251,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">RAM (МБ)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.memory')}</label>
                   <input
                     type="number"
                     min={256}
@@ -2263,7 +2262,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Swap (МБ)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.swap')}</label>
                   <input
                     type="number"
                     min={0}
@@ -2278,7 +2277,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               {/* Storage & Disk */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Сховище RootFS</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.storage')}</label>
                   <select
                     value={createCTModal.storage}
                     onChange={(e) => setCreateCTModal((prev) => ({ ...prev, storage: e.target.value }))}
@@ -2292,7 +2291,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Розмір диска (ГБ)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.diskSize')}</label>
                   <input
                     type="number"
                     min={2}
@@ -2305,7 +2304,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
               {/* Bridge */}
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Мережевий міст (Bridge)</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.createCtModal.bridge')}</label>
                 <select
                   value={createCTModal.bridge}
                   onChange={(e) => setCreateCTModal((prev) => ({ ...prev, bridge: e.target.value }))}
@@ -2330,11 +2329,11 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                   <label htmlFor="enableDockerInCt" className="text-zinc-900 dark:text-zinc-100 font-semibold cursor-pointer text-xs">
-                    Підтримка Docker (Nesting & Keyctl)
+                    {t('nodeAdmin.createCtModal.dockerSupport')}
                   </label>
                 </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pl-5 leading-relaxed">
-                  Вмикає вкладену ізоляцію (nesting=1, keyctl=1), що дозволяє запускати Docker daemon і контейнери всередині цього CT.
+                  {t('nodeAdmin.createCtModal.dockerSupportDesc')}
                 </p>
               </div>
 
@@ -2349,7 +2348,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                   <label htmlFor="unprivilegedCt" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
-                    Безпривілейований контейнер (Unprivileged — рекомендовано)
+                    {t('nodeAdmin.createCtModal.unprivileged')}
                   </label>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2361,7 +2360,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                     className="rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                   <label htmlFor="startCtAfterCreate" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
-                    Запустити контейнер одразу після створення
+                    {t('nodeAdmin.createCtModal.startAfterCreate')}
                   </label>
                 </div>
               </div>
@@ -2372,13 +2371,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   onClick={() => setCreateCTModal((prev) => ({ ...prev, isOpen: false }))}
                   className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium cursor-pointer"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs cursor-pointer"
                 >
-                  Створити контейнер
+                  {t('nodeAdmin.createCtModal.submit')}
                 </button>
               </div>
             </form>
@@ -2393,7 +2392,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
                 <Network className="w-4 h-4 text-blue-500" />
-                <span>{networkModal.mode === 'create' ? 'Створити Linux Bridge' : `Редагувати ${networkModal.iface}`}</span>
+                <span>{networkModal.mode === 'create' ? t('nodeAdmin.createBridgeTitle') : t('nodeAdmin.editIfaceTitle', { iface: networkModal.iface })}</span>
               </div>
               <button
                 onClick={() => setNetworkModal((prev) => ({ ...prev, isOpen: false }))}
@@ -2405,7 +2404,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
             <form onSubmit={handleSaveNetwork} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Інтерфейс *</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.ifaceNameLabel')}</label>
                 <input
                   type="text"
                   required
@@ -2429,7 +2428,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Шлюз (Gateway)</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.tableNetGateway')}</label>
                   <input
                     type="text"
                     value={networkModal.gateway}
@@ -2441,23 +2440,23 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Порти мосту (Bridge Ports)</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.bridgePortsLabel')}</label>
                 <input
                   type="text"
                   value={networkModal.bridge_ports}
                   onChange={(e) => setNetworkModal((prev) => ({ ...prev, bridge_ports: e.target.value }))}
-                  placeholder="eth0 або eno1"
+                  placeholder={t('nodeAdmin.bridgePortsPlaceholder')}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Коментар</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.commentLabel')}</label>
                 <input
                   type="text"
                   value={networkModal.comments}
                   onChange={(e) => setNetworkModal((prev) => ({ ...prev, comments: e.target.value }))}
-                  placeholder="Локальний мережевий міст для ВМ"
+                  placeholder={t('nodeAdmin.commentPlaceholder')}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 />
               </div>
@@ -2471,7 +2470,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   className="rounded text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="netAutostart" className="text-zinc-700 dark:text-zinc-300 cursor-pointer">
-                  Автозапуск при завантаженні вузла (Autostart)
+                  {t('nodeAdmin.autostartLabel')}
                 </label>
               </div>
 
@@ -2481,13 +2480,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   onClick={() => setNetworkModal((prev) => ({ ...prev, isOpen: false }))}
                   className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
                 >
-                  Зберегти інтерфейс
+                  {t('nodeAdmin.saveIfaceBtn')}
                 </button>
               </div>
             </form>
@@ -2502,7 +2501,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
             <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-700 pb-3">
               <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-sm">
                 <FolderPlus className="w-4 h-4 text-blue-500" />
-                <span>Підключити сховище до кластера</span>
+                <span>{t('nodeAdmin.connectStorageTitle')}</span>
               </div>
               <button
                 onClick={() => setStorageModal((prev) => ({ ...prev, isOpen: false }))}
@@ -2514,33 +2513,33 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
             <form onSubmit={handleCreateStorage} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">ID Сховища (Storage ID) *</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.storageIdLabel')}</label>
                 <input
                   type="text"
                   required
                   value={storageModal.storage}
                   onChange={(e) => setStorageModal((prev) => ({ ...prev, storage: e.target.value }))}
-                  placeholder="backup-storage або data-nvme"
+                  placeholder={t('nodeAdmin.storageIdPlaceholder')}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Тип сховища</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.storageTypeLabel')}</label>
                 <select
                   value={storageModal.type}
                   onChange={(e: any) => setStorageModal((prev) => ({ ...prev, type: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 >
-                  <option value="dir">Directory (Каталог файлової системи)</option>
-                  <option value="nfs">NFS (Мережева файлова система)</option>
+                  <option value="dir">Directory</option>
+                  <option value="nfs">NFS</option>
                   <option value="lvmthin">LVM-Thin Pool</option>
                 </select>
               </div>
 
               {storageModal.type === 'dir' && (
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Шлях до каталогу (Directory Path) *</label>
+                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.dirPathLabel')}</label>
                   <input
                     type="text"
                     required
@@ -2555,7 +2554,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               {storageModal.type === 'nfs' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Сервер NFS *</label>
+                    <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.nfsServerLabel')}</label>
                     <input
                       type="text"
                       required
@@ -2607,7 +2606,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
               )}
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">Вміст (Content)</label>
+                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('nodeAdmin.contentLabel')}</label>
                 <input
                   type="text"
                   value={storageModal.content}
@@ -2615,7 +2614,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   placeholder="images,iso,backup,snippets"
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 font-mono"
                 />
-                <p className="text-[10px] text-zinc-400 mt-1">Доступні типи: images, iso, backup, vztmpl, snippets</p>
+                <p className="text-[10px] text-zinc-400 mt-1">{t('nodeAdmin.contentTypesHint')}</p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
@@ -2624,13 +2623,13 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   onClick={() => setStorageModal((prev) => ({ ...prev, isOpen: false }))}
                   className="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs"
                 >
-                  Підключити сховище
+                  {t('nodeAdmin.connectStorageBtn')}
                 </button>
               </div>
             </form>
@@ -2651,7 +2650,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                   {dangerModal.title}
                 </h3>
                 <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
-                  Критична операція, що впливає на збереження даних
+                  {t('nodeAdmin.criticalOpBanner')}
                 </p>
               </div>
               <button
@@ -2669,7 +2668,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
 
             <div className="space-y-2">
               <label className="block text-xs text-zinc-700 dark:text-zinc-300">
-                Для підтвердження та розблокування введіть назву{' '}
+                {t('nodeAdmin.typeToUnlockConfirm')}{' '}
                 <code className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-rose-600 dark:text-rose-400 font-mono font-bold">
                   {dangerModal.expectedConfirmText}
                 </code>
@@ -2691,7 +2690,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 onClick={() => setDangerModal(null)}
                 className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -2704,7 +2703,7 @@ export const NodeAdminModal: React.FC<NodeAdminModalProps> = ({
                 className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors disabled:opacity-30 disabled:hover:bg-rose-600 cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Підтвердити знищення</span>
+                <span>{t('nodeAdmin.confirmDestruction')}</span>
               </button>
             </div>
           </div>

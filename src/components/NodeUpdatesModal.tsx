@@ -14,6 +14,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { ProxmoxAPTUpdate, SSHProfile } from '../types';
 
 interface NodeUpdatesModalProps {
@@ -29,6 +30,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
   nodeName,
   onOpenTerminal,
 }) => {
+  const { t } = useTranslation();
   const { activeServer, sshProfiles } = useApp();
   const [updates, setUpdates] = useState<ProxmoxAPTUpdate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -104,12 +106,12 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Не вдалося отримати список оновлень Proxmox',
+        text: err.message || t.common.error,
       });
     } finally {
       setLoading(false);
     }
-  }, [activeServer, nodeName]);
+  }, [activeServer, nodeName, t]);
 
   const handleRefreshRepo = async () => {
     if (!activeServer || !nodeName) return;
@@ -121,20 +123,20 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
         if (res.success) {
           setStatusMsg({
             type: 'success',
-            text: 'Запит apt update відправлено. Оновлення списку пакетів...',
+            text: t.nodeUpdates.updatingIndex,
           });
           setTimeout(fetchUpdates, 3000);
         } else {
           setStatusMsg({
             type: 'error',
-            text: res.error || 'Не вдалося оновити списки репозиторіїв',
+            text: res.error || t.common.error,
           });
         }
       }
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка виконання apt update',
+        text: err.message || t.common.error,
       });
     } finally {
       setRefreshingRepo(false);
@@ -162,7 +164,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
     if (!effectiveProfile) {
       setStatusMsg({
         type: 'error',
-        text: 'Не знайдено інформації про хост Proxmox.',
+        text: t.nodeUpdates.nodeSSHNote,
       });
       return;
     }
@@ -185,7 +187,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
         if (res.success) {
           setStatusMsg({
             type: 'success',
-            text: `Пакет ${pkgName} успішно встановлено!`,
+            text: `${pkgName}: ${t.common.success}`,
           });
           setUpdates((prev) => prev.filter((u) => u.package !== pkgName));
         } else {
@@ -198,14 +200,14 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
           }
           setStatusMsg({
             type: 'error',
-            text: res.error || `Не вдалося встановити ${pkgName}`,
+            text: res.error || t.common.error,
           });
         }
       }
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка встановлення пакета',
+        text: err.message || t.common.error,
       });
     } finally {
       setInstallingPkg(null);
@@ -216,7 +218,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
     if (!effectiveProfile) {
       setStatusMsg({
         type: 'error',
-        text: 'Не знайдено інформації про хост Proxmox.',
+        text: t.nodeUpdates.nodeSSHNote,
       });
       return;
     }
@@ -225,7 +227,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
     if (safePkgs.length === 0) {
       setStatusMsg({
         type: 'error',
-        text: 'Немає доступних безпечних оновлень (залишились лише оновлення ядра/завантажувача).',
+        text: t.vmDetail.updates.noUpdates,
       });
       return;
     }
@@ -238,20 +240,13 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
 
     setInstallingAllSafe(true);
     setStatusMsg(null);
-    setBatchProgress({
-      current: 0,
-      total: safePkgs.length,
-      currentPackage: safePkgs[0],
-      percent: 0,
-    });
-
-    let successCount = 0;
     const errors: string[] = [];
+    let successCount = 0;
 
     try {
       for (let i = 0; i < safePkgs.length; i++) {
         const pkg = safePkgs[i];
-        const percent = Math.round((i / safePkgs.length) * 100);
+        const percent = Math.round(((i + 1) / safePkgs.length) * 100);
         setBatchProgress({
           current: i + 1,
           total: safePkgs.length,
@@ -260,39 +255,23 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
         });
 
         if (window.api?.updates?.installUpdate) {
-          let res = await window.api.updates.installUpdate(
+          const res = await window.api.updates.installUpdate(
             { ...effectiveProfile, password: pass },
             pkg,
             pass
           );
-
-          if (!res.success && (res.error?.includes('ECONNREFUSED') || res.error?.includes('ETIMEDOUT'))) {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            res = await window.api.updates.installUpdate(
-              { ...effectiveProfile, password: pass },
-              pkg,
-              pass
-            );
-          }
-
           if (res.success) {
             successCount++;
             setUpdates((prev) => prev.filter((u) => u.package !== pkg));
           } else {
-            if (
-              res.error?.includes('password is required') ||
-              res.error?.includes('incorrect password') ||
-              res.error?.includes('Authentication failed')
-            ) {
+            if (res.error?.includes('password is required') || res.error?.includes('incorrect password') || res.error?.includes('Authentication failed')) {
               setHostPassword('');
-              setBatchProgress(null);
-              setInstallingAllSafe(false);
               requestHostPassword().then(async (newPass) => {
                 if (newPass) await handleInstallAllSafe();
               });
               return;
             }
-            errors.push(`${pkg}: ${res.error || 'помилка'}`);
+            errors.push(`${pkg}: ${res.error || t.common.error}`);
           }
         }
       }
@@ -300,28 +279,28 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
       setBatchProgress({
         current: safePkgs.length,
         total: safePkgs.length,
-        currentPackage: 'Завершено',
+        currentPackage: t.common.success,
         percent: 100,
       });
 
       if (successCount > 0) {
         setStatusMsg({
           type: 'success',
-          text: `Успішно встановлено ${successCount} з ${safePkgs.length} оновлень!${
-            errors.length > 0 ? ` Помилок: ${errors.length}` : ''
-          }`,
+          text: t.nodeUpdates.installedCountMsg
+            .replace('{{count}}', String(successCount))
+            .replace('{{total}}', String(safePkgs.length)),
         });
         setTimeout(fetchUpdates, 1500);
       } else {
         setStatusMsg({
           type: 'error',
-          text: errors[0] || 'Не вдалося встановити оновлення.',
+          text: errors[0] || t.common.error,
         });
       }
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка виконання оновлення',
+        text: err.message || t.common.error,
       });
     } finally {
       setTimeout(() => {
@@ -358,13 +337,13 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold tracking-tight flex items-center gap-2">
-                Оновлення системи Proxmox: {nodeName}
+                {t.nodeUpdates.title.replace('{{node}}', nodeName)}
                 <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                  {updates.length} доступно
+                  {t.nodeUpdates.availableCount.replace('{{count}}', String(updates.length))}
                 </span>
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Перевірка та встановлення пакетів PVE і ядра хоста
+                {t.nodeUpdates.subtitle}
               </p>
             </div>
           </div>
@@ -375,10 +354,10 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
               onClick={handleRefreshRepo}
               disabled={refreshingRepo}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
-              title="Оновити список пакетів з репозиторіїв (apt update)"
+              title={t.nodeUpdates.aptUpdateTitle}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshingRepo ? 'animate-spin text-amber-500' : ''}`} />
-              <span>{refreshingRepo ? 'Оновлення індексу...' : 'apt update'}</span>
+              <span>{refreshingRepo ? t.nodeUpdates.updatingIndex : t.nodeUpdates.aptUpdate}</span>
             </button>
 
             <button
@@ -423,20 +402,20 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Пошук пакетів (pve, qemu, kernel...)"
+                placeholder={t.nodeUpdates.searchPackages}
                 className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white dark:bg-[#202024] border border-zinc-200 dark:border-zinc-700 text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/40"
               />
             </div>
 
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Безпечні: {safeCount}</span>
+              <span>{t.nodeUpdates.safeCount.replace('{{count}}', String(safeCount))}</span>
             </span>
 
             {rebootCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
                 <ShieldAlert className="w-3.5 h-3.5" />
-                <span>Потребують рестарту (ядро): {rebootCount}</span>
+                <span>{t.nodeUpdates.kernelCount.replace('{{count}}', String(rebootCount))}</span>
               </span>
             )}
           </div>
@@ -450,10 +429,10 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
                   onOpenTerminal();
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
-                title="Відкрити Shell вузла для інтерактивного оновлення через apt-get dist-upgrade"
+                title={t.nodeUpdates.updateViaShellTitle}
               >
                 <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Оновити через Shell</span>
+                <span>{t.nodeUpdates.updateViaShell}</span>
               </button>
             )}
 
@@ -468,13 +447,13 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     <span>
-                      Оновлення {batchProgress.current}/{batchProgress.total} ({batchProgress.percent}%)...
+                      {batchProgress.percent}% ({batchProgress.current}/{batchProgress.total})
                     </span>
                   </>
                 ) : (
                   <>
                     <Download className={`w-3.5 h-3.5 ${installingAllSafe ? 'animate-bounce' : ''}`} />
-                    <span>{installingAllSafe ? 'Встановлення...' : `Встановити безпечні (${safeCount})`}</span>
+                    <span>{installingAllSafe ? t.nodeUpdates.installing : t.nodeUpdates.installSafe.replace('{{count}}', String(safeCount))}</span>
                   </>
                 )}
               </button>
@@ -487,7 +466,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
           <div className="px-6 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#1c1c20]">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                Встановлення {batchProgress.current} з {batchProgress.total}:{' '}
+                {t.nodeUpdates.installing} ({batchProgress.current}/{batchProgress.total}):{' '}
                 <code className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
                   {batchProgress.currentPackage}
                 </code>
@@ -510,16 +489,16 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
           {loading && updates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-3">
               <RefreshCw className="w-7 h-7 animate-spin text-amber-500" />
-              <span className="text-xs">Перевірка доступних оновлень Proxmox...</span>
+              <span className="text-xs">{t.common.loading}</span>
             </div>
           ) : filteredUpdates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-zinc-400 text-xs gap-2">
               <CheckCircle2 className="w-8 h-8 text-emerald-500" />
               <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                Всі пакети оновлено до актуальної версії!
+                {t.nodeUpdates.allUpToDate}
               </span>
               <span className="text-[11px] text-zinc-400">
-                Для перевірки нових релізів натисніть «apt update».
+                {t.nodeUpdates.checkNewReleases}
               </span>
             </div>
           ) : (
@@ -547,7 +526,7 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
                         </span>
                         {isDanger && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-medium shrink-0">
-                            Ядро / Рестарт
+                            {t.nodeUpdates.kernelRestart}
                           </span>
                         )}
                       </div>
@@ -575,10 +554,10 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
                     onClick={() => handleInstallSingle(pkg.package)}
                     disabled={isInstallingThis || !effectiveProfile || batchProgress !== null}
                     className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs shrink-0"
-                    title="Встановити це оновлення"
+                    title={t.nodeUpdates.updateThisTitle}
                   >
                     <Download className={`w-3.5 h-3.5 ${isInstallingThis ? 'animate-bounce text-amber-500' : ''}`} />
-                    <span>{isInstallingThis ? 'Встановлення...' : 'Оновити'}</span>
+                    <span>{isInstallingThis ? t.nodeUpdates.installing : t.nodeUpdates.updateThis}</span>
                   </button>
                 </div>
               );
@@ -592,17 +571,17 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
             {effectiveProfile ? (
               <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Вузол {nodeName} ({effectiveProfile.username}@{effectiveProfile.host})
+                {nodeName} ({effectiveProfile.username}@{effectiveProfile.host})
               </span>
             ) : (
-              <span>Для прямого встановлення налаштуйте SSH-профіль до сервера або використовуйте Shell</span>
+              <span>{t.nodeUpdates.nodeSSHNote}</span>
             )}
           </span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg text-xs font-medium bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors cursor-pointer"
           >
-            Закрити
+            {t.common.close}
           </button>
         </div>
       </div>
@@ -620,10 +599,10 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  Пароль хоста Proxmox
+                  {t.nodeUpdates.hostPasswordTitle}
                 </h3>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Потрібен пароль користувача {effectiveProfile?.username || 'root'} для встановлення
+                  {t.nodeUpdates.hostPasswordDesc.replace('{{user}}', effectiveProfile?.username || 'root')}
                 </p>
               </div>
             </div>
@@ -640,14 +619,14 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
             >
               <div>
                 <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Пароль ({effectiveProfile?.username || 'root'}@{effectiveProfile?.host || activeServer?.host})
+                  {t.common.password} ({effectiveProfile?.username || 'root'}@{effectiveProfile?.host || activeServer?.host})
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="password"
                     autoFocus
-                    placeholder="Введіть пароль root/SSH хоста"
+                    placeholder={t.nodeUpdates.hostPasswordPlaceholder}
                     value={tempPasswordInput}
                     onChange={(e) => setTempPasswordInput(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:border-amber-500 dark:focus:border-amber-400 text-zinc-900 dark:text-zinc-100 font-mono"
@@ -661,14 +640,14 @@ export const NodeUpdatesModal: React.FC<NodeUpdatesModalProps> = ({
                   onClick={() => setPasswordModal({ isOpen: false, callback: async () => {} })}
                   className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors font-medium cursor-pointer"
                 >
-                  Скасувати
+                  {t.common.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={!tempPasswordInput.trim()}
                   className="px-4 py-1.5 rounded-lg text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  Підтвердити
+                  {t.common.confirm}
                 </button>
               </div>
             </form>

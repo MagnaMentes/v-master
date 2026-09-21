@@ -26,11 +26,13 @@ import {
   Archive,
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { SSHProfileModal } from './SSHProfileModal';
 import { ResourceDiagnosticsModal } from './ResourceDiagnosticsModal';
 import type { VMMetrics, VMSnapshot, SSHProfile, ProxmoxRRDPoint, ProxmoxBackup } from '../types';
 
 export const VMDetailView: React.FC = () => {
+  const { t } = useLanguage();
   const {
     activeServer,
     selectedVM,
@@ -153,7 +155,7 @@ export const VMDetailView: React.FC = () => {
           [selectedVM.vmid]: [...(prev[selectedVM.vmid] || []), pkgName],
         }));
         checkVMUpdates(selectedVM.vmid);
-        setUpdateStatusMsg({ type: 'success', text: `Компонент ${pkgName} успішно оновлено!` });
+        setUpdateStatusMsg({ type: 'success', text: t('vmDetail.componentUpdatedSuccess', { name: pkgName }) });
       } else {
         if (res.error?.includes('password is required') || res.error?.includes('incorrect password')) {
           setSudoPassword('');
@@ -168,7 +170,7 @@ export const VMDetailView: React.FC = () => {
           });
           return;
         }
-        setUpdateStatusMsg({ type: 'error', text: res.error || `Помилка оновлення ${pkgName}` });
+        setUpdateStatusMsg({ type: 'error', text: res.error || t('vmDetail.componentUpdateError', { name: pkgName }) });
       }
     } finally {
       setUpdatingPackage(null);
@@ -182,7 +184,7 @@ export const VMDetailView: React.FC = () => {
       setIsSSHModalOpen(true);
       setUpdateStatusMsg({
         type: 'error',
-        text: 'Для цієї ВМ ще не налаштовано SSH-профіль. Будь ласка, збережіть користувача та авторизацію для виконання операцій.',
+        text: t.vmDetail.sshProfileRequiredDesc,
       });
       return;
     }
@@ -195,7 +197,7 @@ export const VMDetailView: React.FC = () => {
     if (!profile.host) {
       setUpdateStatusMsg({
         type: 'error',
-        text: 'Не знайдено IP-адресу для підключення до ВМ.',
+        text: t.vmDetail.noIpFound,
       });
       return;
     }
@@ -214,7 +216,7 @@ export const VMDetailView: React.FC = () => {
         if (res.success) {
           setUpdateStatusMsg({
             type: 'success',
-            text: 'Системний кеш Linux (Page Cache & Buffers) успішно очищено!',
+            text: t.vmDetail.cacheClearedSuccess,
           });
           // Also fetch fresh in-OS memory status to update UI immediately
           try {
@@ -239,14 +241,14 @@ export const VMDetailView: React.FC = () => {
         } else {
           setUpdateStatusMsg({
             type: 'error',
-            text: res.error || 'Не вдалося очистити кеш памʼяті',
+            text: res.error || t.vmDetail.cacheClearFailed,
           });
         }
       }
     } catch (err: any) {
       setUpdateStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка виконання команди',
+        text: err.message || t.vmDetail.cmdError,
       });
     } finally {
       setIsClearingCache(false);
@@ -278,7 +280,7 @@ export const VMDetailView: React.FC = () => {
         if (res.success) {
           setUpdateStatusMsg({
             type: 'success',
-            text: 'QEMU Guest Agent успішно встановлено! Proxmox тепер зможе точно відслідковувати вільну RAM після активації агента в налаштуваннях ВМ.',
+            text: t.vmDetail.guestAgentInstalledSuccess,
           });
           setTimeout(() => {
             loadVMMetrics();
@@ -287,14 +289,14 @@ export const VMDetailView: React.FC = () => {
         } else {
           setUpdateStatusMsg({
             type: 'error',
-            text: res.error || 'Не вдалося встановити qemu-guest-agent',
+            text: res.error || t.vmDetail.guestAgentInstallFailed,
           });
         }
       }
     } catch (err: any) {
       setUpdateStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка встановлення qemu-guest-agent',
+        text: err.message || t.vmDetail.guestAgentInstallError,
       });
     } finally {
       setIsInstallingAgent(false);
@@ -334,7 +336,7 @@ export const VMDetailView: React.FC = () => {
       setBatchProgress({
         current: 0,
         total: safePackages.length,
-        currentPackage: 'Створення захисного снапшота...',
+        currentPackage: t.vmDetail.snapshotCreatingDesc,
         percent: 10,
       });
 
@@ -346,7 +348,7 @@ export const VMDetailView: React.FC = () => {
           selectedVM.node,
           selectedVM.vmid,
           snapName,
-          `Захисний снапшот перед оновленням ${safePackages.length} пакетів`,
+          t('vmDetail.snapshotPreUpgradeDesc', { count: safePackages.length }),
           false
         );
         if (snapRes.success) {
@@ -377,13 +379,13 @@ export const VMDetailView: React.FC = () => {
         setBatchProgress({
           current: safePackages.length,
           total: safePackages.length,
-          currentPackage: 'Завершено',
+          currentPackage: t.vmDetail.completed,
           percent: 100,
         });
         setUpdateStatusMsg({
           type: 'success',
-          text: `Успішно оновлено всі ${res.installedCount || safePackages.length} компонентів в єдиній сесії!${
-            createdSnapshotName ? ` Створено снапшот: ${createdSnapshotName}` : ''
+          text: `${t('vmDetail.batchUpdateSuccess', { count: res.installedCount || safePackages.length })}${
+            createdSnapshotName ? t('vmDetail.createdSnapshotNameMsg', { name: createdSnapshotName }) : ''
           }`,
         });
       } else {
@@ -394,13 +396,13 @@ export const VMDetailView: React.FC = () => {
           }
           setUpdateStatusMsg({
             type: 'error',
-            text: 'Невірний або відсутній sudo пароль. Введіть коректний пароль користувача.',
+            text: t.vmDetail.invalidSudoPassword,
           });
           return;
         }
         setUpdateStatusMsg({
           type: 'error',
-          text: res.error || 'Помилка пакетного оновлення компонентів.',
+          text: res.error || t.vmDetail.batchUpdateError,
         });
       }
     } finally {
@@ -592,7 +594,7 @@ export const VMDetailView: React.FC = () => {
   if (!selectedVM) {
     return (
       <div className="flex-1 flex items-center justify-center p-8 text-center text-xs text-zinc-400 bg-zinc-50 dark:bg-[#18181B]">
-        Виберіть віртуальну машину зі списку ліворуч для перегляду деталей
+        {t.vmDetail.selectPrompt}
       </div>
     );
   }
@@ -612,7 +614,7 @@ export const VMDetailView: React.FC = () => {
         await window.api.proxmox.executeVMAction(activeServer, selectedVM.node, selectedVM.vmid, action, selectedVM.type);
         await refreshClusterData();
       } catch (err: any) {
-        alert(`Помилка: ${err.message}`);
+        alert(`${t('common.error')}: ${err.message}`);
       } finally {
         setIsActionLoading(false);
       }
@@ -622,8 +624,8 @@ export const VMDetailView: React.FC = () => {
       setConfirmInputText('');
       setConfirmModal({
         isOpen: true,
-        title: 'Примусова зупинка ВМ (Hard Stop)',
-        message: `Ви впевнені, що бажаєте примусово зупинити ВМ "${selectedVM.name}" (VMID: ${selectedVM.vmid})? Це аварійне знеструмлення без синхронізації кешу дисків. Для штатної зупинки використовуйте "Вимкнути (Shutdown)".`,
+        title: t.vmDetail.hardStopConfirmTitle,
+        message: t('vmDetail.hardStopConfirmDesc', { name: selectedVM.name, vmid: selectedVM.vmid }),
         action: perform,
       });
       return;
@@ -632,8 +634,8 @@ export const VMDetailView: React.FC = () => {
     if (action === 'shutdown') {
       setConfirmModal({
         isOpen: true,
-        title: 'Вимкнення ВМ (Shutdown)',
-        message: `Ви впевнені, що бажаєте вимкнути ВМ "${selectedVM.name}" (VMID: ${selectedVM.vmid})? Системі буде надіслано сигнал коректного завершення роботи.`,
+        title: t.vmDetail.shutdownConfirmTitle,
+        message: t('vmDetail.shutdownConfirmDesc', { name: selectedVM.name, vmid: selectedVM.vmid }),
         action: perform,
       });
       return;
@@ -642,8 +644,8 @@ export const VMDetailView: React.FC = () => {
     if (action === 'reboot') {
       setConfirmModal({
         isOpen: true,
-        title: 'Перезавантаження ВМ (Reboot)',
-        message: `Ви впевнені, що бажаєте перезавантажити ВМ "${selectedVM.name}" (VMID: ${selectedVM.vmid})? Усі запущені процеси та сервіси будуть перезапущені.`,
+        title: t.vmDetail.rebootConfirmTitle,
+        message: t('vmDetail.rebootConfirmDesc', { name: selectedVM.name, vmid: selectedVM.vmid }),
         action: perform,
       });
       return;
@@ -671,7 +673,7 @@ export const VMDetailView: React.FC = () => {
       setSnapDesc('');
       await loadSnapshots();
     } catch (e: any) {
-      alert(`Помилка створення снапшота: ${e.message}`);
+      alert(t('vmDetail.snapshotCreateError', { message: e.message }));
     } finally {
       setIsActionLoading(false);
     }
@@ -682,8 +684,8 @@ export const VMDetailView: React.FC = () => {
     setConfirmInputText('');
     setConfirmModal({
       isOpen: true,
-      title: 'Відкат снапшота',
-      message: `УВАГА! Ви збираєтесь відкотити стан ВМ до снапшота "${snap.name}". Усі поточні незбережені зміни, файли та стан бази даних після моменту створення знімка буде БЕЗПОВОРОТНО ВТРАЧЕНО!`,
+      title: t.vmDetail.snapshots.rollbackConfirmTitle,
+      message: t.vmDetail.snapshots.rollbackWarning,
       expectedInput: snap.name,
       action: async () => {
         setIsActionLoading(true);
@@ -692,7 +694,7 @@ export const VMDetailView: React.FC = () => {
           await refreshClusterData();
           await loadSnapshots();
         } catch (e: any) {
-          alert(`Помилка відкату: ${e.message}`);
+          alert(t('vmDetail.rollbackError', { message: e.message }));
         } finally {
           setIsActionLoading(false);
         }
@@ -705,8 +707,8 @@ export const VMDetailView: React.FC = () => {
     setConfirmInputText('');
     setConfirmModal({
       isOpen: true,
-      title: 'Видалення снапшота',
-      message: `Ви дійсно бажаєте видалити снапшот "${snap.name}"? Цю дію неможливо скасувати.`,
+      title: t.vmDetail.deleteSnapshotTitle,
+      message: t('vmDetail.deleteSnapshotDesc', { name: snap.name }),
       expectedInput: snap.name,
       action: async () => {
         setIsActionLoading(true);
@@ -714,7 +716,7 @@ export const VMDetailView: React.FC = () => {
           await window.api.proxmox.deleteSnapshot(activeServer, selectedVM.node, selectedVM.vmid, snap.name, selectedVM.type);
           await loadSnapshots();
         } catch (e: any) {
-          alert(`Помилка видалення: ${e.message}`);
+          alert(t('vmDetail.deleteSnapshotError', { message: e.message }));
         } finally {
           setIsActionLoading(false);
         }
@@ -735,10 +737,10 @@ export const VMDetailView: React.FC = () => {
         backupCompress
       );
       setIsCreateBackupOpen(false);
-      alert('Завдання створення резервної копії (VZDump) успішно запущено у Proxmox.');
+      alert(t.vmDetail.vzdumpStartedSuccess);
       setTimeout(() => loadBackups(), 2000);
     } catch (e: any) {
-      alert(`Помилка створення бекапу: ${e.message}`);
+      alert(t('vmDetail.vzdumpError', { message: e.message }));
     } finally {
       setIsActionLoading(false);
     }
@@ -825,7 +827,7 @@ export const VMDetailView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold">
-                  {isResourceCritical ? 'Критичне навантаження ресурсів ВМ!' : 'Підвищене споживання системних ресурсів'}
+                  {isResourceCritical ? t.vmDetail.resourceCriticalTitle : t.vmDetail.resourceWarningTitle}
                 </h3>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -836,10 +838,10 @@ export const VMDetailView: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs mt-1 opacity-90 leading-relaxed">
-                {isCpuHigh && `Процесор завантажено на ${cpuPercent}%. `}
-                {isRamHigh && `Оперативну пам'ять вичерпано на ${ramPercent}% (${formatBytes(ramUsed)} з ${formatBytes(ramMax)}). `}
-                {isDiskHigh && `Дисковий простір зайнято на ${diskPercent}%. `}
-                Рекомендується перевірити запущені процеси або розширити виділені ресурси у Proxmox.
+                {isCpuHigh && t('vmDetail.resourceCpuText', { percent: cpuPercent })}
+                {isRamHigh && t('vmDetail.resourceRamText', { percent: ramPercent, used: formatBytes(ramUsed), max: formatBytes(ramMax) })}
+                {isDiskHigh && t('vmDetail.resourceDiskText', { percent: diskPercent })}
+                {t.vmDetail.resourceAdvice}
               </p>
             </div>
           </div>
@@ -852,7 +854,7 @@ export const VMDetailView: React.FC = () => {
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            <span>Діагностика</span>
+            <span>{t.vmDetail.diagnosticsBtn}</span>
           </button>
         </div>
       )}
@@ -868,7 +870,7 @@ export const VMDetailView: React.FC = () => {
                   : 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
               }`}
             >
-              {selectedVM.type === 'lxc' ? 'LXC Контейнер' : 'QEMU ВМ'}
+              {selectedVM.type === 'lxc' ? t.vmDetail.lxcContainer : t.vmDetail.qemuVm}
             </span>
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold border border-zinc-200 dark:border-zinc-700">
               ID: {selectedVM.vmid}
@@ -885,11 +887,11 @@ export const VMDetailView: React.FC = () => {
               <span
                 className={`w-2 h-2 rounded-full ${isRunning ? 'bg-emerald-500' : 'bg-zinc-400'}`}
               />
-              {isRunning ? 'Активна (Running)' : selectedVM.status === 'paused' ? 'Призупинена' : 'Зупинена (Stopped)'}
+              {isRunning ? t.vmDetail.runningStatus : selectedVM.status === 'paused' ? t.vmDetail.pausedStatus : t.vmDetail.stoppedStatus}
             </span>
             {vmAlerts[selectedVM.vmid]?.hasAlert && (
               <span
-                title="Високе навантаження ресурсів"
+                title={t.vmDetail.highLoadTooltip}
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
                   vmAlerts[selectedVM.vmid].severity === 'critical'
                     ? 'bg-rose-500 text-white animate-pulse'
@@ -897,45 +899,45 @@ export const VMDetailView: React.FC = () => {
                 }`}
               >
                 <Flame className="w-3 h-3" />
-                <span>Навантаження</span>
+                <span>{t.vmDetail.highLoad}</span>
               </span>
             )}
             {vmUpdates[selectedVM.vmid]?.hasCritical && (
               <span
-                title="Критичні оновлення ОС потребують уваги!"
+                title={t.vmDetail.criticalUpdatesTooltip}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white animate-pulse shadow-xs"
               >
                 !
-                <span>Критичні оновлення</span>
+                <span>{t.vmDetail.criticalUpdates}</span>
               </span>
             )}
             {vmUpdates[selectedVM.vmid]?.hasDangerousOnly && !vmUpdates[selectedVM.vmid]?.hasCritical && (
               <span
-                title="Є заблоковані оновлення високого ризику (ядро/GRUB). Потребують ручного оновлення зі снапшотом."
+                title={t.vmDetail.dangerousUpdatesTooltip}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 shadow-2xs"
               >
                 <Lock className="w-3 h-3" />
-                <span>Заблоковані оновлення</span>
+                <span>{t.vmDetail.dangerousUpdates}</span>
               </span>
             )}
             {!vmUpdates[selectedVM.vmid]?.hasCritical && (vmUpdates[selectedVM.vmid]?.safeCount || 0) > 0 && (
               <span
-                title={`Доступно ${vmUpdates[selectedVM.vmid].safeCount} дозволених оновлень`}
+                title={t('vmDetail.safeUpdatesTooltip', { count: vmUpdates[selectedVM.vmid].safeCount })}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shadow-2xs"
               >
                 <ArrowUpCircle className="w-3 h-3" />
-                <span>Дозволені оновлення ({vmUpdates[selectedVM.vmid].safeCount})</span>
+                <span>{t('vmDetail.safeUpdatesBtn', { count: vmUpdates[selectedVM.vmid].safeCount })}</span>
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Вузол Proxmox: <strong className="text-zinc-700 dark:text-zinc-200">{selectedVM.node}</strong></span>
+            <span>{t('vmDetail.pveNode', { node: selectedVM.node })}</span>
             <span>•</span>
             <span>
-              IP адреса:{' '}
+              {t.dashboard.tableIp}:{' '}
               <strong className="text-zinc-700 dark:text-zinc-200 font-mono">
-                {primaryIp || 'Очікування Guest Agent...'}
+                {primaryIp || t.vmDetail.waitingGuestAgent}
               </strong>
             </span>
           </div>
@@ -949,7 +951,7 @@ export const VMDetailView: React.FC = () => {
                 disabled={isActionLoading}
                 onClick={() => handlePowerAction('shutdown')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
-                title="М'яке вимкнення через ACPI"
+                title={t.vmDetail.acpiShutdownTooltip}
               >
                 <Square className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                 <span>Shutdown</span>
@@ -958,7 +960,7 @@ export const VMDetailView: React.FC = () => {
                 disabled={isActionLoading}
                 onClick={() => handlePowerAction('reboot')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors"
-                title="Перезавантажити систему"
+                title={t.vmDetail.rebootTooltip}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
                 <span>Reboot</span>
@@ -967,7 +969,7 @@ export const VMDetailView: React.FC = () => {
                 disabled={isActionLoading}
                 onClick={() => handlePowerAction('stop')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 text-xs font-medium transition-colors"
-                title="Примусове вимкнення"
+                title={t.vmDetail.stopTooltip}
               >
                 <Square className="w-3.5 h-3.5" />
                 <span>Force Stop</span>
@@ -980,7 +982,7 @@ export const VMDetailView: React.FC = () => {
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-md transition-all"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>Запустити ВМ</span>
+              <span>{t.vmDetail.startVm}</span>
             </button>
           )}
         </div>
@@ -998,9 +1000,9 @@ export const VMDetailView: React.FC = () => {
               <Terminal className="w-5 h-5" />
             </div>
             <div>
-              <div className="font-semibold text-xs">Відкрити SSH Термінал</div>
+              <div className="font-semibold text-xs">{t.vmDetail.openSshTerminal}</div>
               <div className="text-[11px] text-blue-100">
-                {primaryIp ? `Підключитися до ${primaryIp}` : 'Пряме PTY з’єднання'}
+                {primaryIp ? t('vmDetail.connectToIp', { ip: primaryIp }) : t.vmDetail.directPty}
               </div>
             </div>
           </div>
@@ -1018,7 +1020,7 @@ export const VMDetailView: React.FC = () => {
             <div>
               <div className="font-semibold text-xs">Proxmox Web Console</div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                Резервний доступ через API
+                {t.vmDetail.apiFallback}
               </div>
             </div>
           </div>
@@ -1034,10 +1036,10 @@ export const VMDetailView: React.FC = () => {
             </div>
             <div>
               <div className="font-semibold text-xs">
-                {existingSSHProfile ? 'SSH профіль налаштовано' : 'Налаштувати SSH доступ'}
+                {existingSSHProfile ? t.vmDetail.sshConfigured : t.vmDetail.sshNotConfigured}
               </div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                {existingSSHProfile ? `${existingSSHProfile.username}@${existingSSHProfile.host}` : 'Ключ чи пароль'}
+                {existingSSHProfile ? `${existingSSHProfile.username}@${existingSSHProfile.host}` : t.vmDetail.authKeyOrPass}
               </div>
             </div>
           </div>
@@ -1049,10 +1051,10 @@ export const VMDetailView: React.FC = () => {
         {isRunning && isMetricsLoading && !metrics ? (
           <>
             {[
-              { title: 'Процесор (CPU)', icon: Cpu, iconColor: 'text-blue-500' },
-              { title: "Оперативна пам'ять", icon: Activity, iconColor: 'text-emerald-500' },
-              { title: 'Дисковий простір', icon: HardDrive, iconColor: 'text-amber-500' },
-              { title: 'Мережевий трафік', icon: Network, iconColor: 'text-purple-500' },
+              { title: t.vmDetail.cardCpu, icon: Cpu, iconColor: 'text-blue-500' },
+              { title: t.vmDetail.cardRam, icon: Activity, iconColor: 'text-emerald-500' },
+              { title: t.vmDetail.cardDisk, icon: HardDrive, iconColor: 'text-amber-500' },
+              { title: t.vmDetail.cardNetwork, icon: Network, iconColor: 'text-purple-500' },
             ].map((item, idx) => (
               <div
                 key={idx}
@@ -1079,14 +1081,14 @@ export const VMDetailView: React.FC = () => {
               isCpuHigh ? 'border-rose-300 dark:border-rose-900/80 ring-1 ring-rose-500/20' : 'border-zinc-200 dark:border-zinc-700/80'
             }`}>
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs">
-            <span>Процесор (CPU)</span>
+            <span>{t.vmDetail.cardCpu}</span>
             <Cpu className={`w-4 h-4 ${isCpuHigh ? 'text-rose-500' : 'text-blue-500'}`} />
           </div>
           <div className={`mt-2 text-2xl font-bold ${isCpuHigh ? 'text-rose-600 dark:text-rose-400' : ''}`}>
             {cpuPercent}%
           </div>
           <div className="mt-1 text-xs text-zinc-400">
-            Виділено: {selectedVM.cpus || 1} vCPU
+            {t('vmDetail.allocatedVcpu', { count: selectedVM.cpus || 1 })}
           </div>
           <div className="mt-2 w-full bg-zinc-100 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
             <div
@@ -1100,8 +1102,8 @@ export const VMDetailView: React.FC = () => {
         <div
           title={
             isKvmAllocated
-              ? `Гіпервізор Proxmox показує ${formatBytes(ramUsed)} (${ramPercent}%). За відсутності QEMU Guest Agent гіпервізор утримує весь виділений буфер пам'яті.`
-              : `Оперативна пам'ять: ${formatBytes(ramUsed)} з ${formatBytes(ramMax)}`
+              ? t('vmDetail.ramTooltipHypervisor', { used: formatBytes(ramUsed), percent: ramPercent })
+              : t('vmDetail.ramTooltipNormal', { used: formatBytes(ramUsed), max: formatBytes(ramMax) })
           }
           className={`p-4 rounded-xl bg-white dark:bg-[#252528] border shadow-xs transition-all flex flex-col justify-between ${
             isRamHigh ? 'border-rose-300 dark:border-rose-900/80 ring-1 ring-rose-500/20' : 'border-zinc-200 dark:border-zinc-700/80'
@@ -1109,7 +1111,7 @@ export const VMDetailView: React.FC = () => {
         >
           <div>
             <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs">
-              <span>Оперативна пам'ять</span>
+              <span>{t.vmDetail.cardRam}</span>
               <Activity className={`w-4 h-4 ${isRamHigh ? 'text-rose-500' : 'text-emerald-500'}`} />
             </div>
             <div className="flex items-baseline justify-between mt-2">
@@ -1119,30 +1121,34 @@ export const VMDetailView: React.FC = () => {
               {activeOSMem ? (
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40"
-                  title={`Реальні дані з ядра Linux гостьової ОС (free). Буфер гіпервізора KVM: ${formatBytes(rawRamUsed)}`}
+                  title={t('vmDetail.osDataLiveTooltip', { raw: formatBytes(rawRamUsed) })}
                 >
-                  Дані ОС (Live)
+                  {t.vmDetail.osDataLive}
                 </span>
               ) : isAgentActive ? (
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40"
-                  title="Дані синхронізовано з ОС через QEMU Guest Agent"
+                  title={t.vmDetail.guestAgentSyncedTooltip}
                 >
                   Guest Agent
                 </span>
               ) : isKvmAllocated ? (
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40"
-                  title="Гіпервізор Proxmox утримує виділену пам'ять. Для отримання точних даних потрібен QEMU Guest Agent."
+                  title={t.vmDetail.kvmAllocationTooltip}
                 >
-                  Алокація KVM
+                  {t.vmDetail.kvmAllocation}
                 </span>
               ) : null}
             </div>
             <div className="mt-1 text-xs text-zinc-400 truncate">
               {activeOSMem ? (
                 <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                  ОС: {activeOSMem.used} / {activeOSMem.total} {activeOSMem.available ? `(вільно: ${activeOSMem.available})` : ''}
+                  {t('vmDetail.osMemLine', {
+                    used: activeOSMem.used,
+                    total: activeOSMem.total,
+                    available: activeOSMem.available || '',
+                  })}
                 </span>
               ) : (
                 <span>{formatBytes(ramUsed)} / {formatBytes(ramMax)}</span>
@@ -1162,20 +1168,20 @@ export const VMDetailView: React.FC = () => {
             <button
               onClick={() => setIsDiagnosticsOpen(true)}
               className="w-full px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              title="Переглянути процеси, споживання RAM та диски всередині ОС"
+              title={t.vmDetail.diagProcessesTooltip}
             >
               <Activity className="w-3 h-3" />
-              <span>Діагностика процесів ОС</span>
+              <span>{t.vmDetail.diagProcessesBtn}</span>
             </button>
             {isRunning && (
               <button
                 disabled={isClearingCache}
                 onClick={handleDropCaches}
                 className="w-full px-2 py-1 rounded-lg text-[11px] font-medium bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                title="Звільнити пам'ять: скинути дисковий кеш Linux ядра (Page Cache / Buffers)"
+                title={t.vmDetail.clearRamCacheTooltip}
               >
                 <RotateCcw className={`w-3 h-3 ${isClearingCache ? 'animate-spin' : ''}`} />
-                <span>{isClearingCache ? 'Очищення...' : 'Очистити кеш RAM'}</span>
+                <span>{isClearingCache ? t.vmDetail.clearing : t.vmDetail.clearRamCacheBtn}</span>
               </button>
             )}
             {isRunning && isKvmAllocated && (
@@ -1183,10 +1189,10 @@ export const VMDetailView: React.FC = () => {
                 disabled={isInstallingAgent}
                 onClick={handleInstallGuestAgent}
                 className="w-full px-2 py-1 rounded-lg text-[10px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
-                title="Встановити qemu-guest-agent для точної передачі реального стану пам'яті гостьової ОС в Proxmox"
+                title={t.vmDetail.installAgentTooltip}
               >
                 <Download className={`w-3 h-3 ${isInstallingAgent ? 'animate-bounce' : ''}`} />
-                <span>{isInstallingAgent ? 'Встановлення...' : 'Встановити Guest Agent'}</span>
+                <span>{isInstallingAgent ? t.vmDetail.installingAgent : t.vmDetail.installAgentBtn}</span>
               </button>
             )}
           </div>
@@ -1197,14 +1203,14 @@ export const VMDetailView: React.FC = () => {
           isDiskHigh ? 'border-amber-300 dark:border-amber-900/80 ring-1 ring-amber-500/20' : 'border-zinc-200 dark:border-zinc-700/80'
         }`}>
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs">
-            <span>Дисковий простір</span>
+            <span>{t.vmDetail.cardDisk}</span>
             <HardDrive className={`w-4 h-4 ${isDiskHigh ? 'text-amber-500' : 'text-zinc-400'}`} />
           </div>
           <div className={`mt-2 text-2xl font-bold ${isDiskHigh ? 'text-amber-600 dark:text-amber-400' : ''}`}>
             {formatBytes(selectedVM.maxdisk || 0)}
           </div>
           <div className="mt-1 text-xs text-zinc-400">
-            {diskMax > 0 ? `Зайнято: ${diskPercent}% (${formatBytes(diskUsed)})` : "Виділений об'єм диску"}
+            {diskMax > 0 ? t('vmDetail.diskUsedDesc', { percent: diskPercent, used: formatBytes(diskUsed) }) : t.vmDetail.diskAllocatedDesc}
           </div>
           {diskMax > 0 && (
             <div className="mt-2 w-full bg-zinc-100 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
@@ -1219,16 +1225,16 @@ export const VMDetailView: React.FC = () => {
         {/* Network */}
         <div className="p-4 rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs">
           <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs">
-            <span>Мережевий трафік</span>
+            <span>{t.vmDetail.cardNetwork}</span>
             <Network className="w-4 h-4 text-purple-500" />
           </div>
           <div className="mt-2 text-xs font-mono space-y-1">
             <div className="flex justify-between">
-              <span className="text-zinc-400">Вхідний:</span>
+              <span className="text-zinc-400">{t.vmDetail.netIn}</span>
               <span className="font-semibold">{formatBytes(metrics?.netin || selectedVM.netin || 0)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-zinc-400">Вихідний:</span>
+              <span className="text-zinc-400">{t.vmDetail.netOut}</span>
               <span className="font-semibold">{formatBytes(metrics?.netout || selectedVM.netout || 0)}</span>
             </div>
           </div>
@@ -1242,7 +1248,7 @@ export const VMDetailView: React.FC = () => {
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <LineChart className="w-4 h-4 text-blue-500" />
-            <h2 className="text-sm font-semibold">Історія навантаження (RRD)</h2>
+            <h2 className="text-sm font-semibold">{t.vmDetail.rrdTitle}</h2>
           </div>
           <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg text-xs">
             {(['hour', 'day', 'week'] as const).map((tf) => (
@@ -1255,7 +1261,7 @@ export const VMDetailView: React.FC = () => {
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                {tf === 'hour' ? '1 година' : tf === 'day' ? '24 години' : '7 днів'}
+                {tf === 'hour' ? t.vmDetail.rrd.range1h : tf === 'day' ? t.vmDetail.rrd.range24h : t.vmDetail.rrd.range7d}
               </button>
             ))}
           </div>
@@ -1265,11 +1271,11 @@ export const VMDetailView: React.FC = () => {
           {isRRDLoading && rrdData.length === 0 ? (
             <div className="py-12 flex items-center justify-center gap-2 text-zinc-400 text-xs">
               <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-              <span>Завантаження історичних метрик...</span>
+              <span>{t.vmDetail.rrdLoading}</span>
             </div>
           ) : rrdData.length === 0 ? (
             <div className="py-8 text-center text-zinc-400 dark:text-zinc-500 text-xs">
-              Історичні дані для цієї сутності наразі недоступні
+              {t.vmDetail.rrdNoData}
             </div>
           ) : (
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity duration-300 ${
@@ -1307,7 +1313,7 @@ export const VMDetailView: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
                       <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                        Навантаження CPU (%)
+                        {t.vmDetail.rrdCpuLoad}
                       </span>
                       {activePoint ? (
                         <div className="flex items-center gap-1.5">
@@ -1321,15 +1327,15 @@ export const VMDetailView: React.FC = () => {
                       ) : (
                         <div className="flex items-center gap-2 text-[11px] font-mono">
                           <span className="text-zinc-500 dark:text-zinc-400">
-                            Сер: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{avgVal.toFixed(1)}%</span>
+                            {t.vmDetail.rrdAvg} <span className="font-semibold text-zinc-700 dark:text-zinc-200">{avgVal.toFixed(1)}%</span>
                           </span>
                           <span className="text-zinc-300 dark:text-zinc-700">•</span>
                           <span className="text-zinc-500 dark:text-zinc-400">
-                            Пік: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{Math.max(...cpuPercents).toFixed(1)}%</span>
+                            {t.vmDetail.rrdPeak} <span className="font-semibold text-zinc-700 dark:text-zinc-200">{Math.max(...cpuPercents).toFixed(1)}%</span>
                           </span>
                           <span className="text-zinc-300 dark:text-zinc-700">•</span>
                           <span className="text-zinc-500 dark:text-zinc-400">
-                            Зараз: <span className="font-semibold text-blue-600 dark:text-blue-400">{lastVal.toFixed(1)}%</span>
+                            {t.vmDetail.rrdNow} <span className="font-semibold text-blue-600 dark:text-blue-400">{lastVal.toFixed(1)}%</span>
                           </span>
                         </div>
                       )}
@@ -1380,7 +1386,7 @@ export const VMDetailView: React.FC = () => {
                     {/* Time range labels & axis preview */}
                     <div className="flex justify-between items-center mt-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
                       <span>{startTime}</span>
-                      <span className="text-[9px] text-zinc-400">Шкала: 0% – {maxVal.toFixed(0)}%</span>
+                      <span className="text-[9px] text-zinc-400">{t('vmDetail.rrdScale', { max: maxVal.toFixed(0) })}</span>
                       <span>{endTime}</span>
                     </div>
                   </div>
@@ -1422,7 +1428,7 @@ export const VMDetailView: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
                       <span className="font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                        Використання RAM (MB / GB)
+                        {t.vmDetail.rrdRamUsage}
                       </span>
                       {activePoint ? (
                         <div className="flex items-center gap-1.5">
@@ -1437,15 +1443,15 @@ export const VMDetailView: React.FC = () => {
                       ) : (
                         <div className="flex items-center gap-2 text-[11px] font-mono">
                           <span className="text-zinc-500 dark:text-zinc-400">
-                            Сер: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatBytes(avgMem)}</span>
+                            {t.vmDetail.rrdAvg} <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatBytes(avgMem)}</span>
                           </span>
                           <span className="text-zinc-300 dark:text-zinc-700">•</span>
                           <span className="text-zinc-500 dark:text-zinc-400">
-                            Пік: <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatBytes(peakMem)}</span>
+                            {t.vmDetail.rrdPeak} <span className="font-semibold text-zinc-700 dark:text-zinc-200">{formatBytes(peakMem)}</span>
                           </span>
                           <span className="text-zinc-300 dark:text-zinc-700">•</span>
                           <span className="text-zinc-500 dark:text-zinc-400">
-                            Зараз: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatBytes(lastMem)}</span>
+                            {t.vmDetail.rrdNow} <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatBytes(lastMem)}</span>
                           </span>
                         </div>
                       )}
@@ -1497,7 +1503,7 @@ export const VMDetailView: React.FC = () => {
                     <div className="flex justify-between items-center mt-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
                       <span>{startTime}</span>
                       <span className="text-[9px] text-zinc-400">
-                        {maxAllocated > 0 ? `Ліміт: ${formatBytes(maxAllocated)}` : `Макс: ${formatBytes(maxVal)}`}
+                        {maxAllocated > 0 ? `${t('common.limit') || 'Limit'}: ${formatBytes(maxAllocated)}` : `${t('common.max') || 'Max'}: ${formatBytes(maxVal)}`}
                       </span>
                       <span>{endTime}</span>
                     </div>
@@ -1514,7 +1520,7 @@ export const VMDetailView: React.FC = () => {
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-blue-500" />
-            <h2 className="text-sm font-semibold">Знімки стану (Снапшоти)</h2>
+            <h2 className="text-sm font-semibold">{t.vmDetail.snapshotsTitle}</h2>
             <span className="text-xs text-zinc-400">({snapshots.length})</span>
           </div>
           <button
@@ -1522,7 +1528,7 @@ export const VMDetailView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Створити снапшот</span>
+            <span>{t.vmDetail.createSnapshotBtn}</span>
           </button>
         </div>
 
@@ -1543,18 +1549,18 @@ export const VMDetailView: React.FC = () => {
           </div>
         ) : snapshots.length === 0 ? (
           <div className="p-6 text-center text-xs text-zinc-400">
-            Снапшотів для цієї ВМ ще не створено
+            {t.vmDetail.noSnapshots}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700/80">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Назва снапшота</th>
-                  <th className="px-4 py-2.5 font-medium">Опис</th>
-                  <th className="px-4 py-2.5 font-medium">Час створення</th>
-                  <th className="px-4 py-2.5 font-medium">RAM стан</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Дії</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableSnapName}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableSnapDesc}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableSnapTime}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableSnapRam}</th>
+                  <th className="px-4 py-2.5 font-medium text-right">{t.vmDetail.tableSnapActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1567,16 +1573,16 @@ export const VMDetailView: React.FC = () => {
                       {snap.description || '—'}
                     </td>
                     <td className="px-4 py-3 text-zinc-500">
-                      {new Date(snap.snaptime * 1000).toLocaleString('uk-UA')}
+                      {new Date(snap.snaptime * 1000).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
                       {snap.vmstate ? (
                         <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 font-medium">
-                          Збережено RAM
+                          {t.vmDetail.snapRamSaved}
                         </span>
                       ) : (
                         <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
-                          Тільки диск
+                          {t.vmDetail.snapDiskOnly}
                         </span>
                       )}
                     </td>
@@ -1584,14 +1590,14 @@ export const VMDetailView: React.FC = () => {
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           onClick={() => handleRollbackSnapshot(snap)}
-                          title="Відкотити ВМ до цього стану"
+                          title={t.vmDetail.snapRollbackTooltip}
                           className="p-1.5 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-600 dark:text-amber-400 transition-colors"
                         >
                           <Undo2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteSnapshot(snap)}
-                          title="Видалити снапшот"
+                          title={t.vmDetail.snapDeleteTooltip}
                           className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-600 dark:text-red-400 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1611,13 +1617,13 @@ export const VMDetailView: React.FC = () => {
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Archive className="w-4 h-4 text-emerald-500" />
-            <h2 className="text-sm font-semibold">Резервні копії (Backups)</h2>
+            <h2 className="text-sm font-semibold">{t.vmDetail.backupsTitle}</h2>
             <span className="text-xs text-zinc-400">({backups.length})</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => loadBackups()}
-              title="Оновити список бекапів"
+              title={t.vmDetail.refreshBackupsTooltip}
               className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isBackupsLoading ? 'animate-spin' : ''}`} />
@@ -1627,7 +1633,7 @@ export const VMDetailView: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Створити бекап</span>
+              <span>{t.vmDetail.createBackupBtn}</span>
             </button>
           </div>
         </div>
@@ -1635,22 +1641,22 @@ export const VMDetailView: React.FC = () => {
         {isBackupsLoading ? (
           <div className="p-8 flex items-center justify-center gap-2 text-zinc-400 text-xs">
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Пошук резервних копій у сховищах ноди...</span>
+            <span>{t.vmDetail.searchingBackups}</span>
           </div>
         ) : backups.length === 0 ? (
           <div className="p-8 text-center text-zinc-500 dark:text-zinc-400 text-xs">
-            Для цієї сутності ще не створено резервних копій у сховищах Proxmox.
+            {t.vmDetail.noBackups}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Том (VolID)</th>
-                  <th className="px-4 py-2.5 font-medium">Формат</th>
-                  <th className="px-4 py-2.5 font-medium">Розмір</th>
-                  <th className="px-4 py-2.5 font-medium">Дата створення</th>
-                  <th className="px-4 py-2.5 font-medium">Примітки</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableVolId}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableFormat}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableSize}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableDate}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.vmDetail.tableNotes}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1711,25 +1717,25 @@ export const VMDetailView: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                          Оновлення компонентів операційної системи
+                          {t.vmDetail.osUpdatesTitle}
                         </h3>
                         {hasActionableCritical && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white animate-pulse">
-                            Потрібна увага
+                            {t.vmDetail.attentionRequired}
                           </span>
                         )}
                         {!hasActionableCritical && onlyDangerousRemain && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            Потребує ручного контролю
+                            {t.vmDetail.manualControlRequired}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                         {activeList.length
-                          ? `Залишилось ${activeList.length} оновлень (дозволено для оновлення в 1 клік: ${safeCount})`
+                          ? t('vmDetail.updatesRemaining', { total: activeList.length, safe: safeCount })
                           : existingSSHProfile
-                          ? 'Усі системні компоненти мають актуальні версії'
-                          : 'Налаштуйте SSH доступ для перевірки оновлень ОС'}
+                          ? t.vmDetail.updates.allUpToDate
+                          : t.vmDetail.configureSshForUpdates}
                       </p>
                     </div>
                   </div>
@@ -1745,7 +1751,7 @@ export const VMDetailView: React.FC = () => {
                           className="rounded border-zinc-300 dark:border-zinc-600 text-emerald-600 focus:ring-0 cursor-pointer"
                         />
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Захисний снапшот</span>
+                        <span>{t.vmDetail.protectiveSnapshot}</span>
                       </label>
                     )}
 
@@ -1759,15 +1765,15 @@ export const VMDetailView: React.FC = () => {
                           <>
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                             <span>
-                              {batchProgress.currentPackage.startsWith('Створення')
-                                ? 'Створення снапшота...'
-                                : `Оновлення ${batchProgress.current}/${batchProgress.total} (${batchProgress.percent}%)...`}
+                              {batchProgress.currentPackage === t.vmDetail.snapshotCreatingDesc
+                                ? t.vmDetail.snapshotInProgress
+                                : `${t('common.updating') || 'Updating'} ${batchProgress.current}/${batchProgress.total} (${batchProgress.percent}%)...`}
                             </span>
                           </>
                         ) : (
                           <>
                             <ArrowUpCircle className="w-3.5 h-3.5" />
-                            <span>Оновити всі дозволені ({safeCount})</span>
+                            <span>{t('vmDetail.upgradeSafeCount', { count: safeCount })}</span>
                           </>
                         )}
                       </button>
@@ -1784,11 +1790,11 @@ export const VMDetailView: React.FC = () => {
                           }
                         }}
                         disabled={isActionLoading}
-                        title={`Відкотити систему до стану перед оновленням (${lastPreUpdateSnapshot})`}
+                        title={t('vmDetail.rollbackToSnapshotTooltip', { name: lastPreUpdateSnapshot })}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium border border-amber-300 dark:border-amber-800 transition-colors disabled:opacity-50"
                       >
                         <Undo2 className="w-3.5 h-3.5" />
-                        <span>Відкотити до {lastPreUpdateSnapshot}</span>
+                        <span>{t('vmDetail.rollbackToSnapshot', { name: lastPreUpdateSnapshot })}</span>
                       </button>
                     )}
 
@@ -1803,7 +1809,7 @@ export const VMDetailView: React.FC = () => {
                         }`}
                       />
                       <span>
-                        {vmUpdates[selectedVM.vmid]?.isLoading ? 'Сканування...' : 'Перевірити оновлення'}
+                        {vmUpdates[selectedVM.vmid]?.isLoading ? t.vmDetail.scanningUpdates : t.vmDetail.checkUpdatesBtn}
                       </span>
                     </button>
                   </div>
@@ -1814,7 +1820,11 @@ export const VMDetailView: React.FC = () => {
                   <div className="mb-4 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <span className="font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                        Встановлення {batchProgress.current} з {batchProgress.total}:{' '}
+                        {t('vmDetail.installingPkgProgress', {
+                          current: batchProgress.current,
+                          total: batchProgress.total,
+                          name: '',
+                        })}
                         <code className="font-mono text-emerald-600 dark:text-emerald-400">{batchProgress.currentPackage}</code>
                       </span>
                       <span className="font-bold text-zinc-900 dark:text-zinc-100 shrink-0 ml-2">
@@ -1835,8 +1845,8 @@ export const VMDetailView: React.FC = () => {
                   <div className="mb-4 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 text-xs text-red-800 dark:text-red-300 flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="font-semibold block mb-0.5">Чому це критично:</strong>
-                      Виявлено компоненти з незакритими вразливостями безпеки (CVE) або застарілі системні служби. Своєчасне встановлення безпекових патчів захищає віртуальну машину від несанкціонованого проникнення та збоїв.
+                      <strong className="font-semibold block mb-0.5">{t.vmDetail.whyCriticalTitle}</strong>
+                      {t.vmDetail.whyCriticalDesc}
                     </div>
                   </div>
                 )}
@@ -1847,8 +1857,8 @@ export const VMDetailView: React.FC = () => {
                     <div className="flex items-start gap-2.5 max-w-2xl">
                       <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <div>
-                        <strong className="font-semibold block mb-0.5">Усі дозволені оновлення застосовано:</strong>
-                        Залишилися лише системні компоненти підвищеного ризику (ядро ОС / завантажувач). Автоматичне оновлення заблоковано задля стабільності. Якщо оновлення необхідне, створіть знімок стану (снапшот) та виконайте оновлення вручну через SSH термінал.
+                        <strong className="font-semibold block mb-0.5">{t.vmDetail.allSafeAppliedTitle}</strong>
+                        {t.vmDetail.allSafeAppliedDesc}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -1857,14 +1867,14 @@ export const VMDetailView: React.FC = () => {
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-xs transition-colors"
                       >
                         <Camera className="w-3.5 h-3.5" />
-                        <span>Створити снапшот</span>
+                        <span>{t.vmDetail.createSnapBtn}</span>
                       </button>
                       <button
                         onClick={() => openTerminalForVM(selectedVM, 'ssh')}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-medium transition-colors"
                       >
                         <Terminal className="w-3.5 h-3.5" />
-                        <span>Термінал</span>
+                        <span>{t.vmDetail.terminalBtn}</span>
                       </button>
                     </div>
                   </div>
@@ -1883,7 +1893,7 @@ export const VMDetailView: React.FC = () => {
             if (activeList.length === 0) {
               return (
                 <div className="pt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  Всі компоненти успішно оновлено!
+                  {t.vmDetail.allComponentsUpdated}
                 </div>
               );
             }
@@ -1908,11 +1918,11 @@ export const VMDetailView: React.FC = () => {
                       {u.isDangerous ? (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" />
-                          Високий ризик (блоковано)
+                          {t.vmDetail.highRiskBadge}
                         </span>
                       ) : (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900">
-                          Безпечне
+                          {t.vmDetail.safeBadge}
                         </span>
                       )}
                     </div>
@@ -1920,14 +1930,14 @@ export const VMDetailView: React.FC = () => {
                       {u.description}
                     </div>
                     <div className="font-mono text-[11px] text-zinc-400">
-                      Версія: <span className="text-zinc-600 dark:text-zinc-300">{u.currentVersion}</span>{' '}
+                      {t.vmDetail.versionLabel} <span className="text-zinc-600 dark:text-zinc-300">{u.currentVersion}</span>{' '}
                       ➔ <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{u.newVersion}</span>
                     </div>
 
                     {/* Danger explanation */}
                     {u.isDangerous && u.dangerReason && (
                       <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 p-1.5 rounded border border-amber-200/60 dark:border-amber-900/40 leading-snug">
-                        ⚠️ <strong>Захист системи:</strong> {u.dangerReason}
+                        ⚠️ <strong>{t.vmDetail.systemProtection}</strong> {u.dangerReason}
                       </div>
                     )}
                   </div>
@@ -1937,11 +1947,11 @@ export const VMDetailView: React.FC = () => {
                     {u.isDangerous ? (
                       <button
                         disabled
-                        title="Оновлення цього компонента наживо заблоковано для уникнення збою. Оновіть вручну через термінал зі снапшотом."
+                        title={t.vmDetail.updateBlockedTooltip}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border border-zinc-200 dark:border-zinc-700 cursor-not-allowed font-medium text-xs opacity-80"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Оновлення заблоковано</span>
+                        <span>{t.vmDetail.updateBlocked}</span>
                       </button>
                     ) : (
                       <button
@@ -1952,12 +1962,12 @@ export const VMDetailView: React.FC = () => {
                         {updatingPackage === u.packageName ? (
                           <>
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Оновлення...</span>
+                            <span>{t.vmDetail.updatingPkg}</span>
                           </>
                         ) : (
                           <>
                             <ArrowUpCircle className="w-3.5 h-3.5" />
-                            <span>Оновити</span>
+                            <span>{t.vmDetail.updatePkg}</span>
                           </>
                         )}
                       </button>
@@ -1977,11 +1987,11 @@ export const VMDetailView: React.FC = () => {
           <div className="w-full max-w-sm bg-white dark:bg-[#252528] rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden text-zinc-800 dark:text-zinc-100 p-5 modal-animate">
             <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
               <Camera className="w-4 h-4 text-blue-500" />
-              <span>Створити снапшот ВМ</span>
+              <span>{t.vmDetail.createSnapshotModalTitle}</span>
             </h3>
             <form onSubmit={handleCreateSnapshot} className="space-y-3 text-xs">
               <div>
-                <label className="block font-medium mb-1">Назва снапшота *</label>
+                <label className="block font-medium mb-1">{t.vmDetail.snapshotNameLabel}</label>
                 <input
                   type="text"
                   required
@@ -1992,11 +2002,11 @@ export const VMDetailView: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block font-medium mb-1">Опис</label>
+                <label className="block font-medium mb-1">{t.vmDetail.snapshotDescLabel}</label>
                 <textarea
                   value={snapDesc}
                   onChange={(e) => setSnapDesc(e.target.value)}
-                  placeholder="Стан перед оновленням сервісів"
+                  placeholder={t.vmDetail.snapshotDescPlaceholder}
                   rows={2}
                   className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 resize-none"
                 />
@@ -2008,7 +2018,7 @@ export const VMDetailView: React.FC = () => {
                   onChange={(e) => setSnapIncludeRam(e.target.checked)}
                   className="rounded border-zinc-300 text-blue-600"
                 />
-                <span>Включити оперативну пам'ять (RAM state)</span>
+                <span>{t.vmDetail.includeRamCheckbox}</span>
               </label>
               <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
                 <button
@@ -2016,14 +2026,14 @@ export const VMDetailView: React.FC = () => {
                   onClick={() => setIsCreateSnapOpen(false)}
                   className="px-3 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isActionLoading || !snapName}
                   className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
                 >
-                  {isActionLoading ? 'Створення...' : 'Створити'}
+                  {isActionLoading ? t.vmDetail.creating : t.common.create}
                 </button>
               </div>
             </form>
@@ -2046,7 +2056,7 @@ export const VMDetailView: React.FC = () => {
             {confirmModal.expectedInput && (
               <div className="mb-4 space-y-1.5">
                 <label className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Введіть <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{confirmModal.expectedInput}</span> для підтвердження:
+                  {t('vmDetail.typeExpectedConfirm', { text: '' })}<span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{confirmModal.expectedInput}</span>:
                 </label>
                 <input
                   type="text"
@@ -2067,7 +2077,7 @@ export const VMDetailView: React.FC = () => {
                 }}
                 className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -2080,7 +2090,7 @@ export const VMDetailView: React.FC = () => {
                 }}
                 className="px-4 py-1.5 rounded-lg text-xs bg-red-600 hover:bg-red-700 text-white font-medium shadow-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
-                Підтвердити
+                {t('common.confirm')}
               </button>
             </div>
           </div>
@@ -2108,9 +2118,9 @@ export const VMDetailView: React.FC = () => {
                 <Key className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Потрібен пароль sudo</h3>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t.vmDetail.sudoPromptTitle}</h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Для оновлення системних пакетів на віртуальній машині
+                  {t.vmDetail.sudoPromptDesc}
                 </p>
               </div>
             </div>
@@ -2127,12 +2137,12 @@ export const VMDetailView: React.FC = () => {
             >
               <div>
                 <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Пароль користувача ({existingSSHProfile?.username || 'користувач'})
+                  {t('vmDetail.sudoUserLabel', { user: existingSSHProfile?.username || 'user' })}
                 </label>
                 <input
                   type="password"
                   autoFocus
-                  placeholder="Введіть пароль для sudo"
+                  placeholder={t.vmDetail.sudoPasswordPlaceholder}
                   value={tempSudoInput}
                   onChange={(e) => setTempSudoInput(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:border-blue-500 dark:focus:border-blue-400 text-zinc-900 dark:text-zinc-100 font-mono"
@@ -2145,14 +2155,14 @@ export const VMDetailView: React.FC = () => {
                   onClick={() => setSudoModal({ isOpen: false, callback: async () => {} })}
                   className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors font-medium"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={!tempSudoInput.trim()}
                   className="px-4 py-1.5 rounded-lg text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50"
                 >
-                  Підтвердити
+                  {t('common.confirm')}
                 </button>
               </div>
             </form>
@@ -2167,7 +2177,7 @@ export const VMDetailView: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
                 <Archive className="w-4 h-4" />
-                <span>Створення бекапу (VZDump)</span>
+                <span>{t.vmDetail.createBackupModalTitle}</span>
               </div>
               <button
                 onClick={() => setIsCreateBackupOpen(false)}
@@ -2180,31 +2190,31 @@ export const VMDetailView: React.FC = () => {
             <form onSubmit={handleCreateBackup} className="space-y-4 text-xs">
               <div>
                 <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Режим створення (Mode)
+                  {t.vmDetail.backupModeLabel}
                 </label>
                 <select
                   value={backupMode}
                   onChange={(e: any) => setBackupMode(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
                 >
-                  <option value="snapshot">Snapshot (онлайн, без зупинки роботи)</option>
-                  <option value="suspend">Suspend (коротка пауза пам'яті)</option>
-                  <option value="stop">Stop (повна зупинка на час створення)</option>
+                  <option value="snapshot">{t.vmDetail.backupModeSnapshot}</option>
+                  <option value="suspend">{t.vmDetail.backupModeSuspend}</option>
+                  <option value="stop">{t.vmDetail.backupModeStop}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Алгоритм стиснення (Compression)
+                  {t.vmDetail.compressionLabel}
                 </label>
                 <select
                   value={backupCompress}
                   onChange={(e: any) => setBackupCompress(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
                 >
-                  <option value="zstd">ZSTD (швидкий і ефективний, рекомендовано)</option>
-                  <option value="gzip">GZIP (універсальний)</option>
-                  <option value="none">Без стиснення (найшвидший запис)</option>
+                  <option value="zstd">{t.vmDetail.compressionZstd}</option>
+                  <option value="gzip">{t.vmDetail.compressionGzip}</option>
+                  <option value="none">{t.vmDetail.compressionNone}</option>
                 </select>
               </div>
 
@@ -2214,14 +2224,14 @@ export const VMDetailView: React.FC = () => {
                   onClick={() => setIsCreateBackupOpen(false)}
                   className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
-                  Скасувати
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isActionLoading}
                   className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors shadow-xs disabled:opacity-50"
                 >
-                  {isActionLoading ? 'Запуск...' : 'Запустити бекап'}
+                  {isActionLoading ? t.vmDetail.startingBackup : t.vmDetail.startBackupBtn}
                 </button>
               </div>
             </form>
@@ -2256,7 +2266,7 @@ export const VMDetailView: React.FC = () => {
             <button
               onClick={() => setUpdateStatusMsg(null)}
               className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5 rounded transition-colors shrink-0"
-              title="Закрити"
+              title={t.vmDetail.closeBtn}
             >
               <X className="w-3.5 h-3.5" />
             </button>

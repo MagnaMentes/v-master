@@ -146,7 +146,7 @@ export const AppUpdateToast: React.FC = () => {
     return (
       <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-3 text-[11px] border border-zinc-200/70 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-300">
         <div className="font-semibold text-zinc-700 dark:text-zinc-200 mb-1.5 flex items-center gap-1.5">
-          <span>Що нового:</span>
+          <span>{t('appUpdate.whatsNew')}</span>
         </div>
         <ul className="space-y-1.5 pl-1 max-h-52 overflow-y-auto pr-1">
           {cleanLines.map((line, idx) => (
@@ -188,7 +188,7 @@ export const AppUpdateToast: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                  Успішно оновлено!
+                  {t('appUpdate.updateSuccess')}
                 </h4>
                 <p className="text-sm font-medium">
                   V-Master v{currentVersion}
@@ -197,7 +197,7 @@ export const AppUpdateToast: React.FC = () => {
             </div>
             <button
               onClick={handleDismissPostUpdate}
-              aria-label="Закрити"
+              aria-label={t('common.close')}
               className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             >
               <X className="w-4 h-4" />
@@ -236,12 +236,12 @@ export const AppUpdateToast: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Application Update
+                {t('appUpdate.title')}
               </h4>
               <p className="text-sm font-medium">
                 {isDownloaded
                   ? `v${updateInfo.version} ${t('common.success').toLowerCase()}`
-                  : `Downloading v${updateInfo.version}...`}
+                  : t('appUpdate.downloading', { version: updateInfo.version })}
               </p>
             </div>
           </div>
@@ -280,7 +280,7 @@ export const AppUpdateToast: React.FC = () => {
                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isInstalling ? 'animate-spin' : ''}`} />
-                <span>{isInstalling ? t('common.loading') : 'Restart now'}</span>
+                <span>{isInstalling ? t('common.loading') : t('appUpdate.restartNow')}</span>
               </button>
               <button
                 onClick={() => setIsDismissed(true)}
@@ -291,7 +291,7 @@ export const AppUpdateToast: React.FC = () => {
             </>
           ) : (
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Auto background download
+              {t('appUpdate.autoDownload')}
             </span>
           )}
         </div>

@@ -123,7 +123,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
       id: 'lang-uk',
       category: t('commandPalette.actions'),
       title: t('commandPalette.switchLangUk'),
-      subtitle: language === 'uk' ? '✓ Активна мова' : 'Перемкнути інтерфейс',
+      subtitle: language === 'uk' ? t('commandPalette.activeLang') : t('commandPalette.switchInterface'),
       badge: 'UA',
       icon: Globe,
       iconColor: 'text-blue-500',
@@ -136,7 +136,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
       id: 'lang-en',
       category: t('commandPalette.actions'),
       title: t('commandPalette.switchLangEn'),
-      subtitle: language === 'en' ? '✓ Active language' : 'Switch interface',
+      subtitle: language === 'en' ? t('commandPalette.activeLang') : t('commandPalette.switchInterface'),
       badge: 'EN',
       icon: Globe,
       iconColor: 'text-indigo-500',
@@ -347,7 +347,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         <div className="px-4 py-2 bg-zinc-50/80 dark:bg-[#18181A]/80 border-t border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400">
           <div className="flex items-center gap-3">
             <span>↑↓ {t('commandPalette.navigation')}</span>
-            <span>↵ {t('common.save') === 'Save' ? 'Select' : 'Вибрати'}</span>
+            <span>↵ {t('common.select')}</span>
             <span>esc {t('common.close')}</span>
           </div>
           <span className="font-medium">V-Master Command Palette</span>

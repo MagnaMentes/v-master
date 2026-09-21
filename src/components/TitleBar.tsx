@@ -59,7 +59,7 @@ export const TitleBar: React.FC = () => {
           </div>
           <button
             onClick={() => setLanguage('uk')}
-            title="Українська мова"
+            title={t('settings.langUk')}
             className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
               language === 'uk'
                 ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold'
@@ -70,7 +70,7 @@ export const TitleBar: React.FC = () => {
           </button>
           <button
             onClick={() => setLanguage('en')}
-            title="English language"
+            title={t('settings.langEn')}
             className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
               language === 'en'
                 ? 'bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold'

@@ -7,7 +7,8 @@ import { terminalThemes } from '../utils/terminalThemes';
 import { useTheme } from '../contexts/ThemeContext';
 import { useApp } from '../contexts/AppContext';
 import { Loader2, AlertCircle, RefreshCw, Key } from 'lucide-react';
-import type { TerminalPane, SSHProfile } from '../types';
+import { TerminalPane, SSHProfile } from '../types';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface TerminalInstanceProps {
   pane: TerminalPane;
@@ -27,6 +28,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const { terminalTheme, settings } = useTheme();
   const { sshProfiles } = useApp();
+  const { t } = useTranslation();
 
   const [isConnecting, setIsConnecting] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,14 +130,14 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
 
       const unsubClosed = window.api.ssh.onClosed((sessionId) => {
         if (sessionId === pane.sessionId && termRef.current) {
-          termRef.current.writeln('\r\n\x1b[33m[Сесію термінала завершено]\x1b[0m\r\n');
+          termRef.current.writeln(`\r\n\x1b[33m${t.terminal.sessionClosed}\x1b[0m\r\n`);
           startAutoReconnect();
         }
       });
 
       const unsubError = window.api.ssh.onError((sessionId, errMsg) => {
         if (sessionId === pane.sessionId && termRef.current) {
-          termRef.current.writeln(`\r\n\x1b[31m[Помилка]: ${errMsg}\x1b[0m\r\n`);
+          termRef.current.writeln(`\r\n\x1b[31m[${t.common.error}]: ${errMsg}\x1b[0m\r\n`);
         }
       });
 
@@ -178,7 +180,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
       setCurrentProfile(profile);
 
       if (!profile.host) {
-        setError('Не вказано IP адресу для віртуальної машини.');
+        setError(t.terminal.noIpError);
         setIsConnecting(false);
         return;
       }
@@ -196,11 +198,10 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
         }
 
         if (!res.success) {
-          setError(res.error || 'Помилка підключення до SSH сервера');
-          term.writeln(`\r\n\x1b[31m[Помилка SSH]: ${res.error || 'Не вдалося підключитися'}\x1b[0m\r\n`);
-          term.writeln(`\x1b[33mНатисніть кнопку "Налаштувати SSH" вгорі, щоб перевірити логін (наприклад, magna_mentes або root) та ключ.\x1b[0m\r\n`);
+          setError(res.error || t.terminal.connError);
+          term.writeln(`\r\n\x1b[31m[SSH Error]: ${res.error || t.terminal.connError}\x1b[0m\r\n`);
         } else {
-          term.writeln('\x1b[32m[V-Master]: Підключено до Ubuntu термінала через SSH PTY.\x1b[0m\r\n');
+          term.writeln(`\x1b[32m${t.terminal.connectedSuccess}\x1b[0m\r\n`);
           setTimeout(() => {
             term.focus();
             term.textarea?.focus();
@@ -209,7 +210,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
       } catch (e: any) {
         if (!isCancelled) {
           setError(e.message);
-          term.writeln(`\r\n\x1b[31m[Помилка]: ${e.message}\x1b[0m\r\n`);
+          term.writeln(`\r\n\x1b[31m[${t.common.error}]: ${e.message}\x1b[0m\r\n`);
         }
       } finally {
         if (!isCancelled) {
@@ -282,7 +283,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
           {reconnectCountdown !== null && (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-[10px] text-blue-600 dark:text-blue-400 animate-pulse">
               <RefreshCw className="w-3 h-3 animate-spin" />
-              <span>Авто-перепідключення через {reconnectCountdown}с...</span>
+              <span>{t.terminal.reconnectingIn.replace('{{seconds}}', String(reconnectCountdown))}</span>
               <button
                 onClick={() => {
                   if (reconnectTimerRef.current) clearInterval(reconnectTimerRef.current);
@@ -290,7 +291,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
                 }}
                 className="underline hover:text-blue-800 dark:hover:text-blue-200 ml-1 cursor-pointer font-medium"
               >
-                Скасувати
+                {t.terminal.cancelReconnect}
               </button>
             </div>
           )}
@@ -298,7 +299,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
           {error && (
             <span className="flex items-center gap-1 text-[10px] text-red-500 truncate max-w-[200px]" title={error}>
               <AlertCircle className="w-3 h-3 shrink-0" />
-              <span>Помилка автентифікації</span>
+              <span>{t.terminal.authFailed}</span>
             </span>
           )}
 
@@ -308,11 +309,11 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
                 e.stopPropagation();
                 onOpenSSHModal(currentProfile);
               }}
-              title="Налаштувати облікові дані SSH (користувач, ключ, пароль)"
+              title={t.terminal.setupSshTitle}
               className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-[11px] font-medium transition-colors border border-amber-300 dark:border-amber-800"
             >
               <Key className="w-3 h-3" />
-              <span>Налаштувати SSH</span>
+              <span>{t.terminal.setupSsh}</span>
             </button>
           )}
 
@@ -335,7 +336,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
                 }
               }, 100);
             }}
-            title="Перепідключити термінал"
+            title={t.terminal.reconnectBtn}
             className="p-1 rounded hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isConnecting ? 'animate-spin text-blue-500' : ''}`} />
@@ -352,7 +353,7 @@ export const TerminalInstance: React.FC<TerminalInstanceProps> = ({
         {isConnecting && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-xs text-zinc-300 text-xs gap-2 pointer-events-none select-none">
             <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-            <span>Підключення до Ubuntu VM...</span>
+            <span>{t.terminal.connecting}</span>
           </div>
         )}
         <div

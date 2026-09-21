@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { translations, Language } from '../i18n/translations';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { translations, Language, TranslationDictionary } from '../i18n/translations';
+
+export type TranslationFunction = ((keyPath: string, params?: Record<string, string | number>) => string) & TranslationDictionary;
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => Promise<void>;
-  t: (keyPath: string, params?: Record<string, string | number>) => string;
+  t: TranslationFunction;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -29,8 +31,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const t = useCallback(
-    (keyPath: string, params?: Record<string, string | number>): string => {
+  const t = useMemo((): TranslationFunction => {
+    const fn = (keyPath: string, params?: Record<string, string | number>): string => {
       const keys = keyPath.split('.');
       let current: any = translations[language];
 
@@ -63,9 +65,10 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         result = result.replace(new RegExp(`{{${paramKey}}}`, 'g'), String(paramVal));
       });
       return result;
-    },
-    [language]
-  );
+    };
+
+    return Object.assign(fn, translations[language]) as TranslationFunction;
+  }, [language]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
@@ -81,3 +84,6 @@ export const useTranslation = () => {
   }
   return context;
 };
+
+export const useLanguage = useTranslation;
+

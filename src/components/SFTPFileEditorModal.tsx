@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Radio,
 } from 'lucide-react';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { SSHProfile } from '../types';
 
 interface SFTPFileEditorModalProps {
@@ -25,6 +26,7 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
   remoteFilePath,
   fileName,
 }) => {
+  const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [initialContent, setInitialContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,11 +48,11 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
           setContent(res.content);
           if (!silent) setInitialContent(res.content);
         } else if (!silent) {
-          setError(res.error || 'Не вдалося прочитати вміст файлу');
+          setError(res.error || t.sftpEditor.readError);
         }
       }
     } catch (err: any) {
-      if (!silent) setError(err.message || 'Помилка читання файлу');
+      if (!silent) setError(err.message || t.sftpEditor.readError);
     } finally {
       if (!silent) setIsLoading(false);
     }
@@ -58,35 +60,37 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    loadFile(false);
-  }, [isOpen, profile, remoteFilePath]);
+    loadFile();
+  }, [isOpen, remoteFilePath]);
 
+  // Live tail periodic poll
   useEffect(() => {
     if (!isOpen || !isLiveTail) return;
     const interval = setInterval(() => {
       loadFile(true);
-    }, 2500);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [isOpen, isLiveTail, profile, remoteFilePath]);
+  }, [isOpen, isLiveTail, remoteFilePath]);
 
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving || !isDirty) return;
     setIsSaving(true);
     setError(null);
     setSuccessMsg(null);
+
     try {
       if (window.api?.sftp?.writeFile) {
         const res = await window.api.sftp.writeFile(profile, remoteFilePath, content);
         if (res.success) {
           setInitialContent(content);
-          setSuccessMsg('Файл успішно збережено на сервері!');
+          setSuccessMsg(t.sftpEditor.saveSuccess);
           setTimeout(() => setSuccessMsg(null), 3000);
         } else {
-          setError(res.error || 'Не вдалося зберегти файл на сервері');
+          setError(res.error || t.sftpEditor.saveError);
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Помилка збереження файлу');
+      setError(err.message || t.sftpEditor.saveError);
     } finally {
       setIsSaving(false);
     }
@@ -94,7 +98,7 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
 
   const handleClose = () => {
     if (isDirty) {
-      if (confirm('У вас є незбережені зміни. Ви дійсно бажаєте закрити редактор?')) {
+      if (confirm(t.sftpEditor.unsavedChanges)) {
         onClose();
       }
     } else {
@@ -135,7 +139,7 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold truncate">{fileName}</h3>
                 {isDirty && (
-                  <span className="w-2 h-2 rounded-full bg-amber-500" title="Незбережені зміни" />
+                  <span className="w-2 h-2 rounded-full bg-amber-500" title={t.sftpEditor.unsavedIndicator} />
                 )}
               </div>
               <p className="text-[10px] text-zinc-400 font-mono truncate">{remoteFilePath}</p>
@@ -146,7 +150,7 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
             {successMsg && (
               <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Збережено</span>
+                <span>{t.sftpEditor.saved}</span>
               </span>
             )}
             {error && (
@@ -163,10 +167,10 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
-              title={isLiveTail ? 'Вимкнути автооновлення файлу' : 'Увімкнути автооновлення файлу (Live Tail)'}
+              title={isLiveTail ? t.sftpEditor.disableLiveTail : t.sftpEditor.enableLiveTail}
             >
               <Radio className={`w-3.5 h-3.5 ${isLiveTail ? 'animate-pulse text-emerald-500' : ''}`} />
-              <span>{isLiveTail ? 'Live Tail (Увімкнено)' : 'Live Tail'}</span>
+              <span>{isLiveTail ? t.sftpEditor.liveTailEnabled : t.sftpEditor.liveTail}</span>
             </button>
 
             <button
@@ -179,7 +183,7 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
               ) : (
                 <Save className="w-3.5 h-3.5" />
               )}
-              <span>{isSaving ? 'Збереження...' : 'Зберегти (⌘S)'}</span>
+              <span>{isSaving ? t.sftpEditor.saving : t.sftpEditor.saveShortcut}</span>
             </button>
 
             <button
@@ -196,7 +200,7 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
           {isLoading ? (
             <div className="flex-1 flex items-center justify-center gap-2 text-zinc-500">
               <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
-              <span>Завантаження вмісту файлу...</span>
+              <span>{t.sftpEditor.loadingContent}</span>
             </div>
           ) : (
             <textarea
@@ -211,10 +215,10 @@ export const SFTPFileEditorModal: React.FC<SFTPFileEditorModalProps> = ({
         {/* Footer Info */}
         <div className="px-5 py-2 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#25252A] flex items-center justify-between text-[11px] text-zinc-400">
           <div className="flex items-center gap-3">
-            <span>Рядків: {linesCount}</span>
-            <span>Кодування: UTF-8</span>
+            <span>{t.sftpEditor.linesCount.replace('{{count}}', String(linesCount))}</span>
+            <span>{t.sftpEditor.encoding}</span>
           </div>
-          <span>Натисніть ⌘S для швидкого збереження</span>
+          <span>{t.sftpEditor.saveHint}</span>
         </div>
       </div>
     </div>

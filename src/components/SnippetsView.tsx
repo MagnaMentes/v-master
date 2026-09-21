@@ -158,7 +158,7 @@ export const SnippetsView: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-5">
         {filtered.length === 0 ? (
           <div className="text-center p-12 text-xs text-zinc-400">
-            Команд за вашим запитом не знайдено
+            {t('snippets.noSnippetsFound')}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -177,7 +177,7 @@ export const SnippetsView: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
-                    {snip.description || 'Немає опису'}
+                    {snip.description || t('snippets.noDescription')}
                   </p>
                   <div className="mt-2.5 p-2 rounded-lg bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-zinc-800 font-mono text-[11px] text-zinc-800 dark:text-zinc-200 break-all">
                     {snip.command}
@@ -188,7 +188,7 @@ export const SnippetsView: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleCopy(snip)}
-                      title="Скопіювати команду"
+                      title={t('snippets.copyCmdTitle')}
                       className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
                     >
                       {copiedId === snip.id ? (
@@ -218,7 +218,7 @@ export const SnippetsView: React.FC = () => {
                     title={
                       tabs.length > 0
                         ? t('snippets.runInTerminal')
-                        : 'Спочатку відкрийте термінал ВМ'
+                        : t('snippets.openTerminalFirst')
                     }
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
                   >
@@ -273,7 +273,7 @@ export const SnippetsView: React.FC = () => {
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Короткий опис команди"
+                  placeholder={t('snippets.descPlaceholder')}
                   className="w-full px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700"
                 />
               </div>

@@ -89,7 +89,7 @@ export const DashboardView: React.FC = () => {
 
     try {
       if (action === 'check-updates') {
-        setBatchProgressMsg('Сканування оновлень ОС...');
+        setBatchProgressMsg(t('dashboard.scanningUpdates'));
         for (const vm of targetVMs) {
           if (vm.status === 'running') {
             await checkVMUpdates(vm.vmid);
@@ -98,7 +98,7 @@ export const DashboardView: React.FC = () => {
       } else {
         for (let i = 0; i < targetVMs.length; i++) {
           const vm = targetVMs[i];
-          const actionText = action === 'start' ? 'Запуск' : action === 'stop' ? 'Зупинка' : 'Перезапуск';
+          const actionText = action === 'start' ? t('dashboard.batchActionStart') : action === 'stop' ? t('dashboard.batchActionStop') : t('dashboard.batchActionReboot');
           setBatchProgressMsg(`${actionText} ${vm.name} (${i + 1}/${targetVMs.length})...`);
           await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action, vm.type);
         }
@@ -124,7 +124,7 @@ export const DashboardView: React.FC = () => {
       await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action, vm.type);
       await refreshClusterData();
     } catch (e: any) {
-      alert(`Помилка виконання дії: ${e.message}`);
+      alert(t('dashboard.actionError', { message: e.message }));
     } finally {
       setActionLoading(null);
     }
@@ -137,7 +137,7 @@ export const DashboardView: React.FC = () => {
       await window.api.proxmox.executeVMAction(activeServer, vm.node, vm.vmid, action, vm.type);
       await refreshClusterData();
     } catch (e: any) {
-      alert(`Помилка виконання дії: ${e.message}`);
+      alert(t('dashboard.actionError', { message: e.message }));
     } finally {
       setActionLoading(null);
       setConfirmVMAction(null);
@@ -157,9 +157,9 @@ export const DashboardView: React.FC = () => {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}д ${h}год`;
-    if (h > 0) return `${h}год ${m}хв`;
-    return `${m}хв`;
+    if (d > 0) return `${d}${t('common.daysShort')} ${h}${t('common.hoursShort')}`;
+    if (h > 0) return `${h}${t('common.hoursShort')} ${m}${t('common.minutesShort')}`;
+    return `${m}${t('common.minutesShort')}`;
   };
 
   const renderVMRow = (vm: ProxmoxVM, isDimmed: boolean = false) => {
@@ -244,7 +244,7 @@ export const DashboardView: React.FC = () => {
             <span>{vm.name}</span>
             {vmAlerts[vm.vmid]?.hasAlert && (
               <span
-                title={`Високе навантаження: CPU ${vmAlerts[vm.vmid].cpuPercent}%, RAM ${vmAlerts[vm.vmid].ramPercent}%`}
+                title={`${t('dashboard.highLoad')}: CPU ${vmAlerts[vm.vmid].cpuPercent}%, RAM ${vmAlerts[vm.vmid].ramPercent}%`}
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                   vmAlerts[vm.vmid].severity === 'critical'
                     ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 animate-pulse'
@@ -252,12 +252,12 @@ export const DashboardView: React.FC = () => {
                 }`}
               >
                 <Flame className="w-2.5 h-2.5" />
-                <span>{vmAlerts[vm.vmid].severity === 'critical' ? 'Високе навантаження' : 'Увага'}</span>
+                <span>{vmAlerts[vm.vmid].severity === 'critical' ? t('dashboard.highLoad') : t('resourceDiagnostics.warnLogs')}</span>
               </span>
             )}
             {vmUpdates[vm.vmid]?.isLoading && (
               <span
-                title="Перевірка оновлень ОС..."
+                title={t('sidebar.checkingUpdates')}
                 className="inline-flex items-center justify-center p-1 text-zinc-400 dark:text-zinc-500 shrink-0"
               >
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
@@ -265,7 +265,7 @@ export const DashboardView: React.FC = () => {
             )}
             {vmUpdates[vm.vmid]?.hasCritical && (
               <span
-                title="Критичні оновлення ОС потребують уваги!"
+                title={t('sidebar.criticalUpdates')}
                 className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-rose-500 text-white font-bold text-[9px] shrink-0 animate-pulse shadow-xs"
               >
                 !
@@ -273,7 +273,7 @@ export const DashboardView: React.FC = () => {
             )}
             {vmUpdates[vm.vmid]?.hasDangerousOnly && !vmUpdates[vm.vmid]?.hasCritical && (
               <span
-                title="Є заблоковані оновлення високого ризику (ядро/GRUB). Потребують ручного оновлення зі снапшотом."
+                title={t('sidebar.dangerousUpdates')}
                 className="inline-flex items-center justify-center p-1 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 shadow-2xs shrink-0"
               >
                 <Lock className="w-2.5 h-2.5" />
@@ -281,7 +281,7 @@ export const DashboardView: React.FC = () => {
             )}
             {!vmUpdates[vm.vmid]?.hasCritical && (vmUpdates[vm.vmid]?.safeCount || 0) > 0 && (
               <span
-                title={`Доступно ${vmUpdates[vm.vmid].safeCount} дозволених оновлень`}
+                title={t('sidebar.safeUpdatesCount', { count: vmUpdates[vm.vmid].safeCount })}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shadow-2xs shrink-0"
               >
                 <ArrowUpCircle className="w-2.5 h-2.5" />
@@ -315,10 +315,10 @@ export const DashboardView: React.FC = () => {
               className="flex items-center gap-1.5 cursor-default"
               title={
                 osMetric
-                  ? `Оперативна пам'ять ОС: ${formatBytes(actualMemBytes)} / ${formatBytes(totalMemBytes)} (${ramPct}%)`
+                  ? t('dashboard.ramOsTooltip', { used: formatBytes(actualMemBytes), max: formatBytes(totalMemBytes), pct: ramPct })
                   : vm.freemem !== undefined && vm.freemem > 0
-                  ? `Оперативна пам'ять (Ballooning): ${formatBytes(actualMemBytes)} / ${formatBytes(totalMemBytes)} (${ramPct}%)`
-                  : `Оперативна пам'ять (KVM Host): ${formatBytes(actualMemBytes)} / ${formatBytes(totalMemBytes)} (${ramPct}%)`
+                  ? t('dashboard.ramBalloonTooltip', { used: formatBytes(actualMemBytes), max: formatBytes(totalMemBytes), pct: ramPct })
+                  : t('dashboard.ramKvmTooltip', { used: formatBytes(actualMemBytes), max: formatBytes(totalMemBytes), pct: ramPct })
               }
             >
               <span className="w-9 font-mono">{ramPct}%</span>
@@ -336,7 +336,7 @@ export const DashboardView: React.FC = () => {
               </div>
               {osMetric && (
                 <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 px-1 py-0.2 bg-emerald-50 dark:bg-emerald-950/40 rounded border border-emerald-200 dark:border-emerald-800">
-                  ОС
+                  {t('dashboard.osLabel')}
                 </span>
               )}
             </div>
@@ -354,7 +354,7 @@ export const DashboardView: React.FC = () => {
               <>
                 <button
                   onClick={() => openTerminalForVM(vm, 'ssh')}
-                  title="Відкрити SSH термінал Ubuntu"
+                  title={t('dashboard.openUbuntuTerminal')}
                   className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-blue-600 dark:text-blue-400 transition-colors"
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -362,7 +362,7 @@ export const DashboardView: React.FC = () => {
                 <button
                   disabled={actionLoading === vm.vmid}
                   onClick={() => handleQuickPowerAction(vm, 'reboot')}
-                  title="Перезавантажити ВМ"
+                  title={t('dashboard.rebootVm')}
                   className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-amber-600 dark:text-amber-400 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -370,7 +370,7 @@ export const DashboardView: React.FC = () => {
                 <button
                   disabled={actionLoading === vm.vmid}
                   onClick={() => handleQuickPowerAction(vm, 'stop')}
-                  title="Зупинити ВМ"
+                  title={t('dashboard.stopVm')}
                   className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-red-600 dark:text-red-400 transition-colors"
                 >
                   <Square className="w-3.5 h-3.5" />
@@ -380,7 +380,7 @@ export const DashboardView: React.FC = () => {
               <button
                 disabled={actionLoading === vm.vmid}
                 onClick={() => handleQuickPowerAction(vm, 'start')}
-                title="Запустити ВМ"
+                title={t('dashboard.startVm')}
                 className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-emerald-600 dark:text-emerald-400 transition-colors"
               >
                 <Play className="w-3.5 h-3.5" />
@@ -398,16 +398,16 @@ export const DashboardView: React.FC = () => {
         <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-center mb-4 text-blue-600 dark:text-blue-400 shadow-sm">
           <Server className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Ласкаво просимо до V-Master</h2>
+        <h2 className="text-xl font-semibold mb-2">{t.dashboard.welcomeTitle}</h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md mb-6">
-          Додайте ваш сервер або кластер Proxmox VE для моніторингу та зручного адміністрування віртуальних машин Ubuntu.
+          {t.dashboard.welcomeDesc}
         </p>
         <button
           onClick={() => setIsServerModalOpen(true)}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-all shadow-md hover:shadow-lg"
         >
           <Plus className="w-4 h-4" />
-          <span>Підключити сервер Proxmox</span>
+          <span>{t.dashboard.connectServerBtn}</span>
         </button>
 
         <ServerModal
@@ -424,9 +424,9 @@ export const DashboardView: React.FC = () => {
       {/* Top Banner / Welcome */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Огляд кластера</h1>
+          <h1 className="text-xl font-bold tracking-tight">{t.dashboard.clusterOverview}</h1>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            {activeServer ? `${activeServer.name} (${activeServer.host})` : 'Сервер не вибрано'}
+            {activeServer ? `${activeServer.name} (${activeServer.host})` : t.dashboard.noServerSelected}
           </p>
         </div>
 
@@ -444,10 +444,10 @@ export const DashboardView: React.FC = () => {
                   }
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors cursor-pointer"
-                title={`Відкрити веб-панель Proxmox (${activeServer.host}) у браузері`}
+                title={t('dashboard.openWebUiTitle', { host: activeServer.host })}
               >
                 <ExternalLink className="w-3.5 h-3.5 text-blue-500" />
-                <span>Веб-інтерфейс Proxmox</span>
+                <span>{t.dashboard.webUiBtn}</span>
               </button>
 
               <button
@@ -538,32 +538,32 @@ export const DashboardView: React.FC = () => {
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between bg-zinc-50/50 dark:bg-[#202024]/50">
           <div className="flex items-center gap-2">
             <Server className="w-4 h-4 text-blue-500" />
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Список вузлів Proxmox</h2>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t.dashboard.nodeListTitle}</h2>
             <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-              {nodes.length} {nodes.length === 1 ? 'вузол' : 'вузлів'}
+              {nodes.length === 1 ? t('dashboard.nodesCount', { count: nodes.length }) : t('dashboard.nodesCountPlural', { count: nodes.length })}
             </span>
           </div>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            Керування службами гіпервізора, терміналом Shell та живленням
+            {t.dashboard.nodeListSubtitle}
           </span>
         </div>
 
         {nodes.length === 0 ? (
           <div className="p-8 text-center text-xs text-zinc-400">
-            Вузлів не знайдено на вибраному сервері
+            {t.dashboard.noNodesOnServer}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700/80">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Статус</th>
-                  <th className="px-4 py-2.5 font-medium">Назва вузла</th>
-                  <th className="px-4 py-2.5 font-medium">Хост / IP</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableStatus}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableNode}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableHost}</th>
                   <th className="px-4 py-2.5 font-medium">CPU %</th>
                   <th className="px-4 py-2.5 font-medium">RAM %</th>
                   <th className="px-4 py-2.5 font-medium">Uptime</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Дії</th>
+                  <th className="px-4 py-2.5 font-medium text-right">{t.dashboard.tableActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -626,7 +626,11 @@ export const DashboardView: React.FC = () => {
                         {isOnline && n.mem && n.maxmem ? (
                           <div
                             className="flex items-center gap-1.5 cursor-default"
-                            title={`Оперативна пам'ять: ${formatBytes(n.mem)} / ${formatBytes(n.maxmem)} (${ramPct}%)`}
+                            title={t('dashboard.ramMemTooltip', {
+                              used: formatBytes(n.mem),
+                              max: formatBytes(n.maxmem),
+                              pct: ramPct,
+                            })}
                           >
                             <span className="w-9 font-mono">{ramPct}%</span>
                             <div className="w-14 bg-zinc-200 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden shrink-0">
@@ -651,7 +655,7 @@ export const DashboardView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedNodeAdmin(n.node)}
-                            title="Адміністрування вузла (Сховища, Диски, Мережа, Оновлення, Завдання, Syslog)"
+                            title={t.dashboard.nodeAdminTooltip}
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer"
                           >
                             <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -659,7 +663,7 @@ export const DashboardView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => openTerminalForNode(n.node)}
-                            title="Відкрити Shell вузла Proxmox"
+                            title={t.dashboard.nodeShellTooltip}
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer"
                           >
                             <Terminal className="w-3.5 h-3.5" />
@@ -667,7 +671,7 @@ export const DashboardView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setSelectedNodeServices(n.node)}
-                            title="Служби Proxmox"
+                            title={t.dashboard.nodeServicesTooltip}
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
                           >
                             <Layers className="w-3.5 h-3.5" />
@@ -675,7 +679,7 @@ export const DashboardView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setConfirmNodeAction({ node: n.node, action: 'reboot' })}
-                            title="Перезавантажити вузол"
+                            title={t.dashboard.rebootNodeTooltip}
                             className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
@@ -694,13 +698,13 @@ export const DashboardView: React.FC = () => {
       {/* Quick VMs Table */}
       <div className="rounded-xl bg-white dark:bg-[#252528] border border-zinc-200 dark:border-zinc-700/80 shadow-xs overflow-hidden">
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-700/80 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Список віртуальних машин</h2>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">{vms.length} знайдено</span>
+          <h2 className="text-sm font-semibold">{t.dashboard.vmListTitle}</h2>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">{t('dashboard.vmsCount', { count: vms.length })}</span>
         </div>
 
         {vms.length === 0 ? (
           <div className="p-8 text-center text-xs text-zinc-400">
-            Віртуальних машин не знайдено на вибраному сервері
+            {t.dashboard.noVmsOnServer}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -718,19 +722,19 @@ export const DashboardView: React.FC = () => {
                           setSelectedVMIds([]);
                         }
                       }}
-                      title="Вибрати всі віртуальні машини"
+                      title={t.dashboard.selectAllVms}
                       className="rounded border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-0 cursor-pointer"
                     />
                   </th>
-                  <th className="px-4 py-2.5 font-medium">Статус</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableStatus}</th>
                   <th className="px-4 py-2.5 font-medium">VMID</th>
-                  <th className="px-4 py-2.5 font-medium">Назва</th>
-                  <th className="px-4 py-2.5 font-medium">Вузол</th>
-                  <th className="px-4 py-2.5 font-medium">IP адреса</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableVmName}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableVmNode}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.dashboard.tableIp}</th>
                   <th className="px-4 py-2.5 font-medium">CPU %</th>
                   <th className="px-4 py-2.5 font-medium">RAM %</th>
                   <th className="px-4 py-2.5 font-medium">Uptime</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Дії</th>
+                  <th className="px-4 py-2.5 font-medium text-right">{t.dashboard.tableActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -740,7 +744,7 @@ export const DashboardView: React.FC = () => {
                 {runningVMs.length === 0 && stoppedVMs.length > 0 && (
                   <tr>
                     <td colSpan={10} className="px-4 py-4 text-center text-xs text-zinc-400">
-                      Немає активних віртуальних машин
+                      {t.dashboard.noActiveVms}
                     </td>
                   </tr>
                 )}
@@ -760,9 +764,9 @@ export const DashboardView: React.FC = () => {
                           ) : (
                             <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />
                           )}
-                          <span>Неактивні віртуальні машини ({stoppedVMs.length})</span>
+                          <span>{t('dashboard.inactiveVmsTitle', { count: stoppedVMs.length })}</span>
                           <span className="text-[10px] text-zinc-400 font-normal">
-                            ({isInactiveCollapsed ? 'згорнуто, натисніть для перегляду' : 'розгорнуто'})
+                            ({isInactiveCollapsed ? t.dashboard.inactiveCollapsed : t.dashboard.inactiveExpanded})
                           </span>
                         </button>
                       </td>
@@ -829,25 +833,28 @@ export const DashboardView: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    {confirmNodeAction.action === 'shutdown' ? 'Вимкнення вузла' : 'Перезавантаження вузла'}
+                    {confirmNodeAction.action === 'shutdown' ? t.dashboard.shutdownNode : t.dashboard.rebootNode}
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Вузол: {confirmNodeAction.node}
+                    {t('dashboard.confirmNodeHeader', { node: confirmNodeAction.node })}
                   </p>
                 </div>
               </div>
 
               <div className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed space-y-2">
                 <p>
-                  Ви впевнені, що бажаєте {confirmNodeAction.action === 'shutdown' ? 'вимкнути' : 'перезавантажити'} весь фізичний сервер Proxmox <strong>{confirmNodeAction.node}</strong>?
+                  {t('dashboard.confirmNodePrompt', {
+                    action: confirmNodeAction.action === 'shutdown' ? t.dashboard.actionShutdownWord : t.dashboard.actionRebootWord,
+                    node: confirmNodeAction.node,
+                  })}
                 </p>
                 {hasRunningVMs ? (
                   <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-[11px]">
-                    <strong>Критична дія:</strong> На цьому вузлі зараз працює <strong>{runningVMsOnNode.length}</strong> активних віртуальних машин/контейнерів. Вони будуть аварійно зупинені!
+                    {t('dashboard.activeVMsOnNodeWarning', { count: runningVMsOnNode.length })}
                   </div>
                 ) : (
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    На вузлі немає активних віртуальних машин.
+                    {t.dashboard.noActiveVmsOnNode}
                   </p>
                 )}
               </div>
@@ -855,7 +862,7 @@ export const DashboardView: React.FC = () => {
               {hasRunningVMs && (
                 <div className="space-y-1.5">
                   <label className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Введіть <strong>{confirmNodeAction.node}</strong> для підтвердження:
+                    {t('dashboard.enterNodeToConfirm', { node: confirmNodeAction.node })}
                   </label>
                   <input
                     type="text"
@@ -890,7 +897,7 @@ export const DashboardView: React.FC = () => {
                       setConfirmNodeInputText('');
                       await refreshClusterData();
                     } catch (e: any) {
-                      alert(`Помилка: ${e.message}`);
+                      alert(`${t('common.error')}: ${e.message}`);
                     } finally {
                       setIsNodeActionLoading(false);
                     }
@@ -921,7 +928,7 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  {confirmVMAction.action === 'stop' ? 'Примусова зупинка (Hard Stop)' : 'Перезавантаження ВМ'}
+                  {confirmVMAction.action === 'stop' ? t.dashboard.confirmHardStopVmTitle : t.dashboard.confirmRebootVmTitle}
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {confirmVMAction.vm.name} (VMID: {confirmVMAction.vm.vmid})
@@ -931,8 +938,8 @@ export const DashboardView: React.FC = () => {
 
             <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
               {confirmVMAction.action === 'stop'
-                ? `Ви впевнені, що бажаєте примусово зупинити ВМ "${confirmVMAction.vm.name}"? Увага: це аналог раптового знеструмлення, незбережені дані та стан баз даних можуть бути пошкоджені.`
-                : `Ви впевнені, що бажаєте надіслати команду перезавантаження для ВМ "${confirmVMAction.vm.name}"?`}
+                ? t('dashboard.confirmHardStopPrompt', { name: confirmVMAction.vm.name })
+                : t('dashboard.confirmRebootPrompt', { name: confirmVMAction.vm.name })}
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
@@ -960,7 +967,7 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Batch Action Bar */}
+      {/* Floating Batch Actions Bar */}
       {selectedVMIds.length > 0 && (
         <div className="fixed bottom-6 inset-x-0 mx-auto z-40 max-w-2xl px-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
           <div className="bg-white/95 dark:bg-[#202024]/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 shadow-2xl rounded-2xl p-3 text-zinc-900 dark:text-zinc-100 flex flex-wrap items-center justify-between gap-3">
@@ -968,7 +975,7 @@ export const DashboardView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                 <span className="text-xs font-semibold">
-                  Вибрано {selectedVMIds.length} {selectedVMIds.length === 1 ? 'ВМ' : selectedVMIds.length < 5 ? 'ВМ' : 'ВМ'}
+                  {t('dashboard.batchSelected', { count: selectedVMIds.length })}
                 </span>
               </div>
 
@@ -978,7 +985,7 @@ export const DashboardView: React.FC = () => {
                   onClick={() => setSelectedVMIds(runningVMs.map((v) => v.vmid))}
                   className="hover:text-blue-500 underline cursor-pointer"
                 >
-                  Запущені ({runningVMs.length})
+                  {t('dashboard.batchRunningCount', { count: runningVMs.length })}
                 </button>
                 <span>•</span>
                 <button
@@ -986,7 +993,7 @@ export const DashboardView: React.FC = () => {
                   onClick={() => setSelectedVMIds(stoppedVMs.map((v) => v.vmid))}
                   className="hover:text-blue-500 underline cursor-pointer"
                 >
-                  Зупинені ({stoppedVMs.length})
+                  {t('dashboard.batchStoppedCount', { count: stoppedVMs.length })}
                 </button>
               </div>
             </div>
@@ -995,7 +1002,7 @@ export const DashboardView: React.FC = () => {
               {isBatchExecuting ? (
                 <div className="flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 px-3 py-1">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>{batchProgressMsg || 'Виконання групової операції...'}</span>
+                  <span>{batchProgressMsg || t.dashboard.batchExecuting}</span>
                 </div>
               ) : (
                 <>
@@ -1004,11 +1011,11 @@ export const DashboardView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBatchAction('start')}
-                      title="Запустити всі вибрані зупинені ВМ"
+                      title={t.dashboard.batchStartTooltip}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
                     >
                       <Play className="w-3.5 h-3.5" />
-                      <span>Запустити</span>
+                      <span>{t.dashboard.start}</span>
                     </button>
                   )}
 
@@ -1017,11 +1024,11 @@ export const DashboardView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBatchAction('reboot')}
-                      title="Перезавантажити всі вибрані активні ВМ"
+                      title={t.dashboard.batchRebootTooltip}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Перезапуск</span>
+                      <span>{t.dashboard.batchReboot}</span>
                     </button>
                   )}
 
@@ -1030,11 +1037,11 @@ export const DashboardView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBatchAction('stop')}
-                      title="Зупинити всі вибрані активні ВМ"
+                      title={t.dashboard.batchStopTooltip}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
                     >
                       <Square className="w-3.5 h-3.5" />
-                      <span>Зупинити</span>
+                      <span>{t.dashboard.stop}</span>
                     </button>
                   )}
 
@@ -1043,11 +1050,11 @@ export const DashboardView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleBatchAction('check-updates')}
-                      title="Опитати стан оновлень ОС для вибраних ВМ"
+                      title={t.dashboard.batchUpdatesTooltip}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium transition-colors cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5 text-zinc-500" />
-                      <span>Оновлення</span>
+                      <span>{t.dashboard.batchUpdates}</span>
                     </button>
                   )}
 
@@ -1055,7 +1062,7 @@ export const DashboardView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedVMIds([])}
-                    title="Зняти вибір (Esc)"
+                    title={t.dashboard.batchDeselectTooltip}
                     className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ml-1 cursor-pointer"
                   >
                     <X className="w-4 h-4" />

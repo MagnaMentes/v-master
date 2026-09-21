@@ -36,7 +36,7 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Не вдалося завантажити список служб Proxmox',
+        text: err.message || t('nodeServices.fetchError'),
       });
     } finally {
       setLoading(false);
@@ -63,20 +63,20 @@ export const NodeServicesModal: React.FC<NodeServicesModalProps> = ({
         if (res.success) {
           setStatusMsg({
             type: 'success',
-            text: `Службу ${serviceName} успішно перезапущено!`,
+            text: t('nodeServices.restartSuccess', { name: serviceName }),
           });
           setTimeout(fetchServices, 1500);
         } else {
           setStatusMsg({
             type: 'error',
-            text: res.error || `Не вдалося перезапустити службу ${serviceName}`,
+            text: res.error || t('nodeServices.restartFailed', { name: serviceName }),
           });
         }
       }
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка під час перезапуску служби',
+        text: err.message || t('nodeServices.restartError'),
       });
     } finally {
       setRestartingService(null);

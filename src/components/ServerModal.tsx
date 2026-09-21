@@ -55,7 +55,7 @@ export const ServerModal: React.FC<ServerModalProps> = ({
       if (!window.api?.proxmox?.testConnection) {
         setTestResult({
           success: false,
-          message: 'Системний міст Proxmox не підключено. Спробуйте оновити вікно (Cmd+R).',
+          message: t('serverModal.bridgeNotConnected'),
         });
         return;
       }
@@ -64,12 +64,12 @@ export const ServerModal: React.FC<ServerModalProps> = ({
       if (res.success) {
         setTestResult({
           success: true,
-          message: `Успішно підключено! Proxmox VE ${res.version || ''}`,
+          message: t('serverModal.connectSuccess', { version: res.version || '' }),
         });
       } else {
         setTestResult({
           success: false,
-          message: res.error || 'Помилка з’єднання',
+          message: res.error || t('serverModal.connectError'),
         });
       }
     } catch (e: any) {

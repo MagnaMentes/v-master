@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { ProxmoxVM, SSHProfile, VMDiagnosticsData, DockerContainer } from '../types';
 import { useApp } from '../contexts/AppContext';
+import { useTranslation } from '../contexts/LanguageContext';
 
 interface ResourceDiagnosticsModalProps {
   isOpen: boolean;
@@ -71,6 +72,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
   onOpenTerminal,
   onConfigureSSH,
 }) => {
+  const { t } = useTranslation();
   const { saveSSHProfile } = useApp();
   const [data, setData] = useState<VMDiagnosticsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -120,7 +122,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
 
   const fetchDiagnostics = useCallback(async () => {
     if (!effectiveProfile || !effectiveProfile.host) {
-      setError('Для цієї ВМ не налаштовано SSH-профіль. Будь ласка, вкажіть користувача та параметри автентифікації.');
+      setError(t.resourceDiagnostics.sshProfileRequired);
       return;
     }
 
@@ -147,17 +149,17 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
           setData(res.data);
           setError(null);
         } else {
-          setError(res.error || 'Не вдалося отримати дані діагностики');
+          setError(res.error || t.resourceDiagnostics.connError);
         }
       } else {
-        setError('API діагностики недоступне');
+        setError(t.common.error);
       }
     } catch (err: any) {
-      setError(err.message || 'Помилка підключення');
+      setError(err.message || t.resourceDiagnostics.connError);
     } finally {
       setLoading(false);
     }
-  }, [effectiveProfile, vm.ipAddresses]);
+  }, [effectiveProfile, vm.ipAddresses, t]);
 
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
@@ -192,14 +194,14 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               return mergeLogs(prev, incomingLogs);
             });
           } else if (!isBackground) {
-            setLogsContent(res.error || 'Не вдалося отримати логи системи');
+            setLogsContent(res.error || t.resourceDiagnostics.emptyJournal);
           }
         }
       } finally {
         setIsLogsLoading(false);
       }
     },
-    [effectiveProfile, logFilter, logUnit]
+    [effectiveProfile, logFilter, logUnit, t]
   );
 
   const fetchDockerContainers = useCallback(async () => {
@@ -227,13 +229,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
       let pass = await requestSudoPassword();
       const res = await window.api.diagnostics.restartDockerContainer(effectiveProfile, containerId, pass || undefined);
       if (res.success) {
-        setStatusMsg({ type: 'success', text: `Контейнер ${containerId} успішно перезапущено` });
+        setStatusMsg({ type: 'success', text: `${containerId}: ${t.common.success}` });
         await fetchDockerContainers();
       } else {
-        setStatusMsg({ type: 'error', text: res.error || 'Помилка перезапуску контейнера' });
+        setStatusMsg({ type: 'error', text: res.error || t.common.error });
       }
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err.message || 'Помилка виконання' });
+      setStatusMsg({ type: 'error', text: err.message || t.common.error });
     } finally {
       setActingContainerId(null);
     }
@@ -247,13 +249,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
         setSelectedContainerLogs({
           id: container.id,
           name: container.names || container.id,
-          logs: res.logs || 'Логів не знайдено.',
+          logs: res.logs || t.resourceDiagnostics.emptyJournal,
         });
       } else {
-        alert(res.error || 'Не вдалося прочитати логи контейнера');
+        alert(res.error || t.common.error);
       }
     } catch (e: any) {
-      alert(e.message || 'Помилка отримання логів');
+      alert(e.message || t.common.error);
     }
   };
 
@@ -379,23 +381,23 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
           type: 'success',
           text:
             action === 'drop-caches'
-              ? 'Системний кеш Linux (Page Cache & Buffers) успішно очищено!'
+              ? t.resourceDiagnostics.cacheClearedSuccess
               : action === 'restart-service'
-              ? `Службу "${target}" успішно перезапущено!`
-              : `Процес (PID: ${target}) зупинено.`,
+              ? t.resourceDiagnostics.serviceRestartSuccess.replace('{{target}}', target || '')
+              : t.resourceDiagnostics.processKilledSuccess.replace('{{target}}', target || ''),
         });
         // Refresh diagnostics
         setTimeout(fetchDiagnostics, 800);
       } else {
         setStatusMsg({
           type: 'error',
-          text: res.error || `Не вдалося виконати дію над ${target || 'кешем'}`,
+          text: res.error || t.common.error,
         });
       }
     } catch (err: any) {
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Помилка виконання команди',
+        text: err.message || t.common.error,
       });
     } finally {
       if (pid) setActingPid(null);
@@ -465,13 +467,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
             </div>
             <div>
               <h2 className="text-base font-bold tracking-tight flex items-center gap-2">
-                Діагностика ресурсів: {vm.name}
+                {t.resourceDiagnostics.title.replace('{{name}}', vm.name)}
                 <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                   VMID: {vm.vmid}
                 </span>
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Аналіз процесів, використання памʼяті та дисків із можливістю швидкого перезапуску або зупинки
+                {t.resourceDiagnostics.subtitle}
               </p>
             </div>
           </div>
@@ -480,7 +482,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               onClick={fetchDiagnostics}
               disabled={loading}
               className="p-2 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-              title="Оновити дані"
+              title={t.resourceDiagnostics.refreshData}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-500' : ''}`} />
             </button>
@@ -502,57 +504,57 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                   <div className="flex items-center gap-1.5">
                     <Database className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Оперативна пам'ять</span>
+                    <span>{t.resourceDiagnostics.ram}</span>
                   </div>
                 </div>
                 <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                   {data.memUsed} / {data.memTotal}
                 </div>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Доступно: {data.memAvailable || data.memFree}
+                  {t.resourceDiagnostics.available.replace('{{amount}}', data.memAvailable || data.memFree)}
                 </div>
               </div>
               <button
                 disabled={isDroppingCache}
                 onClick={() => handleAction('drop-caches', '')}
                 className="mt-2 px-2 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                title="Звільнити дисковий кеш ядра Linux (Page Cache & Buffers)"
+                title={t.resourceDiagnostics.dropCacheTitle}
               >
                 <RotateCcw className={`w-3 h-3 ${isDroppingCache ? 'animate-spin' : ''}`} />
-                <span>{isDroppingCache ? 'Очищення...' : 'Очистити кеш RAM'}</span>
+                <span>{isDroppingCache ? t.resourceDiagnostics.droppingCache : t.resourceDiagnostics.dropCacheBtn}</span>
               </button>
             </div>
 
             <div className="p-3 rounded-xl bg-white dark:bg-[#25252a] border border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                 <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Файл підкачки (Swap)</span>
+                <span>{t.resourceDiagnostics.swap}</span>
               </div>
               <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                 {data.swapUsed || '0B'} / {data.swapTotal || '0B'}
               </div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Використання swap
+                {t.resourceDiagnostics.swapUsage}
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-white dark:bg-[#25252a] border border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                 <HardDrive className="w-3.5 h-3.5 text-amber-500" />
-                <span>Кореневий диск (/)</span>
+                <span>{t.resourceDiagnostics.rootDisk}</span>
               </div>
               <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                 {data.disks.find((d) => d.mountedOn === '/')?.usePercent || 'N/A'}
               </div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                {data.disks.find((d) => d.mountedOn === '/')?.used} з {data.disks.find((d) => d.mountedOn === '/')?.size}
+                {data.disks.find((d) => d.mountedOn === '/')?.used} / {data.disks.find((d) => d.mountedOn === '/')?.size}
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-white dark:bg-[#25252a] border border-zinc-200 dark:border-zinc-800 flex flex-col justify-between">
               <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Глибока діагностика</span>
+                <span>{t.resourceDiagnostics.deepDiag}</span>
               </div>
               <button
                 onClick={() => {
@@ -561,7 +563,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 }}
                 className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <span>Відкрити SSH термінал</span>
+                <span>{t.resourceDiagnostics.openSsh}</span>
                 <span>→</span>
               </button>
             </div>
@@ -615,7 +617,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
-              Топ процесів ({filteredProcesses.length})
+              {t.resourceDiagnostics.topProcesses.replace('{{count}}', String(filteredProcesses.length))}
             </button>
             <button
               onClick={() => setActiveTab('disks')}
@@ -625,7 +627,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
-              Дискові розділи ({data?.disks.length || 0})
+              {t.resourceDiagnostics.diskPartitions.replace('{{count}}', String(data?.disks.length || 0))}
             </button>
             <button
               onClick={() => setActiveTab('logs')}
@@ -636,7 +638,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Логи (Journal)</span>
+              <span>{t.resourceDiagnostics.logsJournal}</span>
             </button>
             <button
               onClick={() => setActiveTab('docker')}
@@ -647,7 +649,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               }`}
             >
               <Container className="w-3.5 h-3.5 text-blue-500" />
-              <span>Docker ({dockerContainers.length})</span>
+              <span>{t.resourceDiagnostics.dockerContainers.replace('{{count}}', String(dockerContainers.length))}</span>
             </button>
           </div>
 
@@ -660,7 +662,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     logFilter === 'all' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-2xs' : 'text-zinc-500'
                   }`}
                 >
-                  Всі
+                  {t.resourceDiagnostics.allLogs}
                 </button>
                 <button
                   onClick={() => setLogFilter('errors')}
@@ -668,7 +670,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     logFilter === 'errors' ? 'bg-rose-500 text-white shadow-2xs' : 'text-zinc-500'
                   }`}
                 >
-                  Помилки
+                  {t.resourceDiagnostics.errorLogs}
                 </button>
                 <button
                   onClick={() => setLogFilter('warnings')}
@@ -676,13 +678,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     logFilter === 'warnings' ? 'bg-amber-500 text-white shadow-2xs' : 'text-zinc-500'
                   }`}
                 >
-                  Увага
+                  {t.resourceDiagnostics.warnLogs}
                 </button>
               </div>
 
               <input
                 type="text"
-                placeholder="Служба (unit)..."
+                placeholder={t.resourceDiagnostics.serviceUnitPlaceholder}
                 value={logUnit}
                 onChange={(e) => setLogUnit(e.target.value)}
                 className="px-2.5 py-1 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 focus:outline-hidden w-28"
@@ -690,7 +692,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
 
               <input
                 type="text"
-                placeholder="Пошук у логах..."
+                placeholder={t.resourceDiagnostics.searchLogsPlaceholder}
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
                 className="px-2.5 py-1 text-xs rounded-lg bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 focus:outline-hidden w-32"
@@ -704,20 +706,20 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
                   }
                 }}
-                title={autoScroll ? 'Автопрокрутка увімкнена' : 'Автопрокрутка вимкнена'}
+                title={autoScroll ? t.resourceDiagnostics.autoScrollOn : t.resourceDiagnostics.autoScrollOff}
                 className={`px-2 py-1 text-[11px] font-medium rounded-lg border transition-colors flex items-center gap-1 ${
                   autoScroll
                     ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                     : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                 }`}
               >
-                <span>Автоскрол</span>
+                <span>{t.resourceDiagnostics.autoScroll}</span>
               </button>
 
               <button
                 onClick={() => fetchLogs(false)}
                 disabled={isLogsLoading}
-                title="Оновити логи"
+                title={t.resourceDiagnostics.refreshLogs}
                 className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLogsLoading ? 'animate-spin text-blue-500' : ''}`} />
@@ -731,7 +733,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="text"
-                  placeholder="Пошук процесу / PID..."
+                  placeholder={t.resourceDiagnostics.searchProcess}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8 pr-3 py-1.5 text-xs rounded-xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 focus:outline-hidden focus:border-blue-500 w-44"
@@ -739,7 +741,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               </div>
 
               <div className="flex items-center gap-1 text-xs">
-                <span className="text-zinc-400 text-[11px]">Сортувати:</span>
+                <span className="text-zinc-400 text-[11px]">{t.resourceDiagnostics.sortBy}</span>
                 <button
                   onClick={() => setSortBy('mem')}
                   className={`px-2 py-1 rounded-lg font-medium transition-colors ${
@@ -770,7 +772,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
           {loading && !data ? (
             <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-3">
               <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
-              <span className="text-xs font-medium">Зчитування процесів та ресурсів ВМ...</span>
+              <span className="text-xs font-medium">{t.resourceDiagnostics.loadingProcesses}</span>
             </div>
           ) : !data && error ? (
             <div className="flex flex-col items-center justify-center py-12 px-6 text-center max-w-md mx-auto">
@@ -778,17 +780,11 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 <WifiOff className="w-6 h-6" />
               </div>
               <h3 className="text-sm font-bold text-zinc-900 dark:text-white mb-1.5">
-                {!effectiveProfile ? 'Потрібно налаштувати SSH-профіль' : 'Неможливо підключитися через SSH'}
+                {!effectiveProfile ? t.terminal.setupSshTitle : t.resourceDiagnostics.connError}
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed">
                 {!effectiveProfile
-                  ? 'Для перегляду процесів та керування памʼяттю необхідно вказати користувача та реквізити входу в налаштуваннях SSH цієї ВМ.'
-                  : error.includes('ECONNREFUSED')
-                  ? `ВМ відхилила підключення на порту ${effectiveProfile?.port || 22}. Перевірте, чи запущена служба SSH (sshd) та чи коректно вказано порт і реквізити в налаштуваннях.`
-                  : error.includes('ETIMEDOUT')
-                  ? `Час очікування підключення вичерпано. Перевірте доступність IP-адреси ${effectiveProfile?.host}.`
-                  : error.includes('All configured authentication methods failed') || error.includes('автентифікації')
-                  ? `Помилка автентифікації на ${effectiveProfile?.host}. Перевірте імʼя користувача, пароль або SSH-ключ у профілі підключення.`
+                  ? t.resourceDiagnostics.sshProfileRequired
                   : error}
               </p>
               <div className="w-full font-mono text-[11px] p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 mb-5 break-all border border-zinc-200 dark:border-zinc-700/60 text-left">
@@ -804,7 +800,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
                   >
                     <Settings className="w-3.5 h-3.5" />
-                    <span>Налаштувати SSH доступ</span>
+                    <span>{t.resourceDiagnostics.setupSshAccess}</span>
                   </button>
                 )}
                 <button
@@ -813,26 +809,26 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  <span>Повторити спробу</span>
+                  <span>{t.resourceDiagnostics.retry}</span>
                 </button>
               </div>
             </div>
           ) : activeTab === 'processes' ? (
             filteredProcesses.length === 0 ? (
               <div className="text-center py-12 text-zinc-400 text-xs">
-                {searchTerm ? 'Не знайдено процесів за вказаним фільтром.' : 'Немає даних про запущені процеси.'}
+                {searchTerm ? t.resourceDiagnostics.noProcessesFound : t.resourceDiagnostics.noProcessesData}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 uppercase tracking-wider text-[10px]">
-                      <th className="pb-2 font-semibold">PID</th>
-                      <th className="pb-2 font-semibold">Користувач</th>
+                      <th className="pb-2 font-semibold">{t.resourceDiagnostics.tablePid}</th>
+                      <th className="pb-2 font-semibold">{t.resourceDiagnostics.tableUser}</th>
                       <th className="pb-2 font-semibold text-right">RAM %</th>
                       <th className="pb-2 font-semibold text-right">CPU %</th>
-                      <th className="pb-2 font-semibold pl-4">Команда / Сервіс</th>
-                      <th className="pb-2 font-semibold text-right">Дії</th>
+                      <th className="pb-2 font-semibold pl-4">{t.resourceDiagnostics.tableCommand}</th>
+                      <th className="pb-2 font-semibold text-right">{t.common.actions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
@@ -899,7 +895,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                                   disabled={isActing}
                                   onClick={() => handleAction('restart-service', serviceName, p.pid)}
                                   className="px-2 py-1 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors flex items-center gap-1 disabled:opacity-50"
-                                  title={`Перезапустити службу ${serviceName} через systemctl`}
+                                  title={t.resourceDiagnostics.restartServiceTitle.replace('{{name}}', serviceName)}
                                 >
                                   <RotateCcw className="w-3 h-3" />
                                   <span>Restart</span>
@@ -909,10 +905,10 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                                 disabled={isActing || p.pid <= 2}
                                 onClick={() => handleAction('kill', p.pid.toString(), p.pid)}
                                 className="px-2 py-1 rounded-md text-[11px] font-medium bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
-                                title={p.pid <= 2 ? 'Системний процес захищений від зупинки' : 'Зупинити процес (kill)'}
+                                title={p.pid <= 2 ? t.resourceDiagnostics.protectedProcessTitle : t.resourceDiagnostics.killProcessTitle}
                               >
                                 <X className="w-3 h-3" />
-                                <span>Зупинити</span>
+                                <span>{t.resourceDiagnostics.killProcess}</span>
                               </button>
                             </div>
                           </td>
@@ -948,7 +944,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                         <span className={isOverload ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-700 dark:text-zinc-300'}>
                           {disk.used}
                         </span>
-                        <span className="text-zinc-400 font-normal"> з {disk.size} ({disk.usePercent})</span>
+                        <span className="text-zinc-400 font-normal"> / {disk.size} ({disk.usePercent})</span>
                       </div>
                     </div>
 
@@ -963,11 +959,11 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                      <span>Вільно: {disk.avail}</span>
+                      <span>{t.resourceDiagnostics.diskFree.replace('{{amount}}', disk.avail)}</span>
                       {isOverload && (
                         <span className="text-rose-500 font-semibold flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3" />
-                          Високий рівень заповнення диску
+                          {t.resourceDiagnostics.diskWarning}
                         </span>
                       )}
                     </div>
@@ -980,30 +976,30 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               {isDockerLoading ? (
                 <div className="py-20 flex items-center justify-center gap-2 text-zinc-400 text-xs">
                   <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-                  <span>Перевірка Docker демона та контейнерів...</span>
+                  <span>{t.resourceDiagnostics.dockerChecking}</span>
                 </div>
               ) : !isDockerInstalled ? (
                 <div className="py-16 text-center text-zinc-500 text-xs">
                   <Container className="w-8 h-8 text-zinc-400 mx-auto mb-2 opacity-50" />
-                  <p className="font-semibold text-zinc-700 dark:text-zinc-300">Docker не виявлено</p>
-                  <p className="text-zinc-400 mt-1">Docker daemon або CLI не встановлені у цій гостьовій системі.</p>
+                  <p className="font-semibold text-zinc-700 dark:text-zinc-300">{t.resourceDiagnostics.dockerNotDetected}</p>
+                  <p className="text-zinc-400 mt-1">{t.resourceDiagnostics.dockerNotDetectedDesc}</p>
                 </div>
               ) : dockerContainers.length === 0 ? (
                 <div className="py-16 text-center text-zinc-500 text-xs">
                   <Container className="w-8 h-8 text-blue-500 mx-auto mb-2 opacity-50" />
-                  <p className="font-semibold text-zinc-700 dark:text-zinc-300">Немає активних контейнерів</p>
-                  <p className="text-zinc-400 mt-1">Docker встановлено, але контейнери відсутні.</p>
+                  <p className="font-semibold text-zinc-700 dark:text-zinc-300">{t.resourceDiagnostics.dockerNoActiveContainers}</p>
+                  <p className="text-zinc-400 mt-1">{t.resourceDiagnostics.dockerNoActiveContainersDesc}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
                       <tr>
-                        <th className="px-4 py-2.5 font-medium">Стан</th>
-                        <th className="px-4 py-2.5 font-medium">Назва / ID</th>
-                        <th className="px-4 py-2.5 font-medium">Образ (Image)</th>
-                        <th className="px-4 py-2.5 font-medium">Порти</th>
-                        <th className="px-4 py-2.5 font-medium text-right">Дії</th>
+                        <th className="px-4 py-2.5 font-medium">{t.resourceDiagnostics.dockerTableState}</th>
+                        <th className="px-4 py-2.5 font-medium">{t.resourceDiagnostics.dockerTableName}</th>
+                        <th className="px-4 py-2.5 font-medium">{t.resourceDiagnostics.dockerTableImage}</th>
+                        <th className="px-4 py-2.5 font-medium">{t.resourceDiagnostics.dockerTablePorts}</th>
+                        <th className="px-4 py-2.5 font-medium text-right">{t.common.actions}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1035,15 +1031,15 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                             <div className="inline-flex items-center gap-1.5">
                               <button
                                 onClick={() => handleViewContainerLogs(c)}
-                                title="Переглянути логи контейнера"
+                                title={t.resourceDiagnostics.dockerLogsTitle}
                                 className="px-2 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium transition-colors"
                               >
-                                Логи
+                                {t.resourceDiagnostics.dockerLogsBtn}
                               </button>
                               <button
                                 onClick={() => handleRestartContainer(c.id)}
                                 disabled={actingContainerId === c.id}
-                                title="Перезапустити контейнер"
+                                title={t.resourceDiagnostics.dockerRestartTitle}
                                 className="p-1.5 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-600 dark:text-amber-400 transition-colors disabled:opacity-50"
                               >
                                 <RotateCcw className={`w-3.5 h-3.5 ${actingContainerId === c.id ? 'animate-spin' : ''}`} />
@@ -1063,7 +1059,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               {isLogsLoading && logsContent && (
                 <div className="absolute top-2.5 right-3 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-[10px] text-zinc-400 font-mono backdrop-blur-xs shadow-xs">
                   <RefreshCw className="w-2.5 h-2.5 animate-spin text-blue-400" />
-                  <span>Синхронізація...</span>
+                  <span>{t.resourceDiagnostics.syncingLogs}</span>
                 </div>
               )}
 
@@ -1075,7 +1071,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                 {isLogsLoading && !logsContent ? (
                   <div className="flex items-center justify-center h-full gap-2 text-zinc-500">
                     <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-                    <span>Завантаження системного журналу...</span>
+                    <span>{t.resourceDiagnostics.loadingJournal}</span>
                   </div>
                 ) : logsContent ? (
                   logsContent
@@ -1100,7 +1096,7 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                       );
                     })
                 ) : (
-                  <div className="text-center py-20 text-zinc-600">Журнал порожній або недоступний</div>
+                  <div className="text-center py-20 text-zinc-600">{t.resourceDiagnostics.emptyJournal}</div>
                 )}
               </div>
             </div>
@@ -1135,13 +1131,13 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
         <div className="px-6 py-3.5 border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-[#25252a]/40 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-zinc-400">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Швидка дія зупиняє процес безпосередньо у віртуальній машині</span>
+            <span>{t.resourceDiagnostics.footerHint}</span>
           </div>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
-            Закрити
+            {t.common.close}
           </button>
         </div>
 
@@ -1154,9 +1150,9 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Потрібен пароль sudo</h3>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t.resourceDiagnostics.sudoRequired}</h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Для виконання системної дії на віртуальній машині
+                    {t.resourceDiagnostics.sudoRequiredDesc}
                   </p>
                 </div>
               </div>
@@ -1173,12 +1169,12 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
               >
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                    Пароль користувача ({effectiveProfile?.username || 'користувач'})
+                    {t.resourceDiagnostics.sudoPasswordLabel.replace('{{user}}', effectiveProfile?.username || 'user')}
                   </label>
                   <input
                     type="password"
                     autoFocus
-                    placeholder="Введіть пароль для sudo"
+                    placeholder={t.resourceDiagnostics.sudoPlaceholder}
                     value={tempSudoInput}
                     onChange={(e) => setTempSudoInput(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 focus:outline-hidden focus:border-blue-500 dark:focus:border-blue-400 text-zinc-900 dark:text-zinc-100 font-mono"
@@ -1195,14 +1191,14 @@ export const ResourceDiagnosticsModal: React.FC<ResourceDiagnosticsModalProps> =
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors font-medium cursor-pointer"
                   >
-                    Скасувати
+                    {t.common.cancel}
                   </button>
                   <button
                     type="submit"
                     disabled={!tempSudoInput.trim()}
                     className="px-4 py-1.5 rounded-lg text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    Підтвердити
+                    {t.common.confirm}
                   </button>
                 </div>
               </form>

@@ -14,9 +14,11 @@ import { useApp } from '../contexts/AppContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { TerminalInstance } from './TerminalInstance';
 import { SSHProfileModal } from './SSHProfileModal';
+import { useTranslation } from '../contexts/LanguageContext';
 import type { TerminalTheme, SSHProfile } from '../types';
 
 export const TerminalView: React.FC = () => {
+  const { t } = useTranslation();
   const {
     tabs,
     activeTabId,
@@ -93,9 +95,9 @@ export const TerminalView: React.FC = () => {
         <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-center mb-3 text-blue-600 dark:text-blue-400">
           <Terminal className="w-7 h-7" />
         </div>
-        <h2 className="text-base font-semibold mb-1">Немає відкритих терміналів</h2>
+        <h2 className="text-base font-semibold mb-1">{t.terminal.noTerminalsTitle}</h2>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mb-5">
-          Виберіть активну віртуальну машину зі списку ліворуч або натисніть нижче, щоб відкрити термінал Ubuntu.
+          {t.terminal.noTerminalsDesc}
         </p>
 
         {vms.filter((v) => v.status === 'running').length > 0 ? (
@@ -117,7 +119,7 @@ export const TerminalView: React.FC = () => {
           </div>
         ) : (
           <div className="text-xs text-zinc-400 mb-6">
-            Запустіть віртуальну машину в огляді кластера для підключення
+            {t.terminal.startVmPrompt}
           </div>
         )}
 
@@ -132,7 +134,7 @@ export const TerminalView: React.FC = () => {
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-medium transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>{selectedVM ? `Повернутися до ${selectedVM.name}` : 'Повернутися до огляду'}</span>
+          <span>{selectedVM ? t.terminal.backTo.replace('{{name}}', selectedVM.name) : t.terminal.backToOverview}</span>
         </button>
       </div>
     );
@@ -150,7 +152,7 @@ export const TerminalView: React.FC = () => {
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                title={`Вкладка ${idx + 1} (⌘${idx + 1})`}
+                title={t.terminal.tabTitle.replace('{{index}}', String(idx + 1))}
                 className={`group flex items-center gap-2 px-3 h-full rounded-md cursor-pointer transition-colors ${
                   isActive
                     ? 'bg-white dark:bg-[#28282D] text-blue-600 dark:text-blue-400 font-medium shadow-xs border border-zinc-300 dark:border-zinc-700'
@@ -170,7 +172,7 @@ export const TerminalView: React.FC = () => {
                     e.stopPropagation();
                     closeTab(tab.id);
                   }}
-                  title="Закрити вкладку (⌘W)"
+                  title={t.terminal.closeTab}
                   className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-opacity"
                 >
                   <X className="w-3 h-3 text-zinc-500" />
@@ -183,7 +185,7 @@ export const TerminalView: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setIsNewTabMenuOpen(!isNewTabMenuOpen)}
-              title="Відкрити термінал для іншої ВМ"
+              title={t.terminal.openForOther}
               className="p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -192,7 +194,7 @@ export const TerminalView: React.FC = () => {
             {isNewTabMenuOpen && (
               <div className="absolute top-full left-0 mt-1 z-30 w-48 bg-white dark:bg-[#28282D] border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl py-1 text-xs">
                 <div className="px-3 py-1 font-semibold text-[10px] text-zinc-400 uppercase tracking-wider">
-                  Виберіть ВМ
+                  {t.terminal.selectVm}
                 </div>
                 {vms
                   .filter((v) => v.status === 'running')
@@ -222,14 +224,14 @@ export const TerminalView: React.FC = () => {
             <div className="flex items-center p-0.5 bg-zinc-200/80 dark:bg-zinc-800/80 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
               <button
                 onClick={() => splitPane(activeTab.id, 'split-vertical')}
-                title="Розділити термінал по вертикалі"
+                title={t.terminal.splitVertical}
                 className="p-1 rounded hover:bg-white dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white"
               >
                 <Columns2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => splitPane(activeTab.id, 'split-horizontal')}
-                title="Розділити термінал по горизонталі"
+                title={t.terminal.splitHorizontal}
                 className="p-1 rounded hover:bg-white dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white"
               >
                 <Rows2 className="w-3.5 h-3.5" />
@@ -242,7 +244,7 @@ export const TerminalView: React.FC = () => {
             <select
               value={terminalTheme}
               onChange={(e) => setTerminalTheme(e.target.value as TerminalTheme)}
-              title="Тема термінала"
+              title={t.terminal.terminalTheme}
               className="px-2 py-1 rounded-md bg-white dark:bg-[#28282D] border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs focus:outline-hidden"
             >
               {themeOptions.map((opt) => (
@@ -256,7 +258,7 @@ export const TerminalView: React.FC = () => {
           {/* Snippets Drawer Toggle */}
           <button
             onClick={() => setIsSnippetsDrawerOpen(!isSnippetsDrawerOpen)}
-            title="Бібліотека швидких команд"
+            title={t.terminal.snippetsLibrary}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
               isSnippetsDrawerOpen
                 ? 'bg-blue-600 border-blue-600 text-white'
@@ -264,18 +266,18 @@ export const TerminalView: React.FC = () => {
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>Снипети</span>
+            <span>{t.terminal.snippets}</span>
           </button>
 
           {/* Close Terminal & Return to VM Button */}
           {activeTab && (
             <button
               onClick={() => closeTab(activeTab.id)}
-              title="Закрити термінал та повернутися до віртуальної машини"
+              title={t.terminal.closeTerminalDesc}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#28282D] text-zinc-700 dark:text-zinc-300 hover:bg-red-50 hover:border-red-300 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:border-red-800 dark:hover:text-red-400 text-xs font-medium transition-colors"
             >
               <X className="w-3.5 h-3.5" />
-              <span>Закрити термінал</span>
+              <span>{t.terminal.closeTerminal}</span>
             </button>
           )}
         </div>
@@ -319,7 +321,7 @@ export const TerminalView: React.FC = () => {
             <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-2 font-semibold text-xs text-zinc-800 dark:text-zinc-200">
                 <Code2 className="w-4 h-4 text-blue-500" />
-                <span>Швидкі команди Ubuntu</span>
+                <span>{t.terminal.quickCommands}</span>
               </div>
               <button
                 onClick={() => setIsSnippetsDrawerOpen(false)}
@@ -337,7 +339,7 @@ export const TerminalView: React.FC = () => {
                   type="text"
                   value={snippetSearch}
                   onChange={(e) => setSnippetSearch(e.target.value)}
-                  placeholder="Пошук команди..."
+                  placeholder={t.terminal.searchCommand}
                   className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700 text-xs focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -356,7 +358,7 @@ export const TerminalView: React.FC = () => {
                     </span>
                     <button
                       onClick={() => sendSnippetToTerminal(snip.command)}
-                      title="Виконати в активному терміналі"
+                      title={t.terminal.runInActive}
                       className="p-1 rounded bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
                     >
                       <Play className="w-3 h-3 fill-current" />
