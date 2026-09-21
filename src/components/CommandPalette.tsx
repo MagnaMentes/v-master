@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { getSnippetTitle, getSnippetDescription } from '../utils/snippetUtils';
 
 interface CommandItem {
   id: string;
@@ -199,12 +200,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
   // 4. Snippets
   snippets.forEach((s) => {
+    const sTitle = getSnippetTitle(s, t);
+    const sDesc = getSnippetDescription(s, t);
     items.push({
       id: `snippet-${s.id}`,
       category: t('sidebar.snippets'),
-      title: s.title,
-      subtitle: s.command,
-      badge: s.category,
+      title: sTitle,
+      subtitle: sDesc && sDesc !== sTitle ? `${s.command} • ${sDesc}` : s.command,
+      badge: t(`snippets.categories.${s.category}`) || s.category,
       icon: Code2,
       perform: () => {
         sendSnippetToTerminal(s.command);

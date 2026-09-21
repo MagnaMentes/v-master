@@ -757,11 +757,46 @@ export const translations = {
       command: 'Команда',
       description: 'Опис',
       category: 'Категорія',
+      name: 'Назва',
       noSnippetsFound: 'Команд за вашим запитом не знайдено',
       noDescription: 'Немає опису',
       copyCmdTitle: 'Скопіювати команду',
       openTerminalFirst: 'Спочатку відкрийте термінал ВМ',
       descPlaceholder: 'Короткий опис команди',
+      defaultItems: {
+        'snip-1': {
+          title: 'Оновлення системи (APT)',
+          description: 'Оновлення індексу та встановлення оновлень безпеки',
+        },
+        'snip-2': {
+          title: 'Очищення пакетів APT',
+          description: 'Видалення непотрібних залежностей та кешу',
+        },
+        'snip-3': {
+          title: 'Статус системних ресурсів',
+          description: 'Перегляд дискового простору та оперативної пам’яті',
+        },
+        'snip-4': {
+          title: 'Мережеві підключення',
+          description: 'Перегляд відкритих портів та слухачів',
+        },
+        'snip-5': {
+          title: 'Статус служб systemd (Failed)',
+          description: 'Перевірка збійних служб у системі',
+        },
+        'snip-6': {
+          title: 'Docker: статус контейнерів',
+          description: 'Список активних та зупинених контейнерів',
+        },
+        'snip-7': {
+          title: 'Docker: використання ресурсів (stats)',
+          description: 'Моніторинг споживання CPU та пам’яті контейнерами',
+        },
+        'snip-8': {
+          title: 'Журнал помилок системи (journalctl)',
+          description: 'Останні 50 повідомлень рівня err',
+        },
+      },
     },
     settings: {
       title: 'Налаштування V-Master',
@@ -1720,11 +1755,46 @@ export const translations = {
       command: 'Command',
       description: 'Description',
       category: 'Category',
+      name: 'Name',
       noSnippetsFound: 'No commands found matching your query',
       noDescription: 'No description',
       copyCmdTitle: 'Copy command',
       openTerminalFirst: 'Open a VM terminal first',
       descPlaceholder: 'Short command description',
+      defaultItems: {
+        'snip-1': {
+          title: 'System Update (APT)',
+          description: 'Update package index and install security updates',
+        },
+        'snip-2': {
+          title: 'APT Package Cleanup',
+          description: 'Remove obsolete dependencies and package cache',
+        },
+        'snip-3': {
+          title: 'System Resource Status',
+          description: 'Inspect disk usage and free RAM',
+        },
+        'snip-4': {
+          title: 'Network Connections',
+          description: 'List listening ports and active sockets',
+        },
+        'snip-5': {
+          title: 'Systemd Service Status (Failed)',
+          description: 'Check failed system services',
+        },
+        'snip-6': {
+          title: 'Docker: Container Status',
+          description: 'List running and stopped containers',
+        },
+        'snip-7': {
+          title: 'Docker: Resource Usage (stats)',
+          description: 'Real-time CPU and memory usage by containers',
+        },
+        'snip-8': {
+          title: 'System Error Log (journalctl)',
+          description: 'Last 50 system messages with priority err',
+        },
+      },
     },
     settings: {
       title: 'V-Master Settings',

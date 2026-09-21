@@ -17,6 +17,7 @@ import {
 import { useApp } from '../contexts/AppContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import type { Snippet } from '../types';
+import { getSnippetTitle, getSnippetDescription } from '../utils/snippetUtils';
 
 export const SnippetsView: React.FC = () => {
   const { t } = useTranslation();
@@ -45,9 +46,11 @@ export const SnippetsView: React.FC = () => {
 
   const filtered = snippets.filter((s) => {
     const matchCategory = selectedCategory === 'all' || s.category === selectedCategory;
+    const sTitle = getSnippetTitle(s, t);
+    const sDesc = getSnippetDescription(s, t);
     const matchSearch =
-      s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase()) ||
+      sTitle.toLowerCase().includes(search.toLowerCase()) ||
+      sDesc.toLowerCase().includes(search.toLowerCase()) ||
       s.command.toLowerCase().includes(search.toLowerCase());
     return matchCategory && matchSearch;
   });
@@ -63,8 +66,8 @@ export const SnippetsView: React.FC = () => {
 
   const handleOpenEdit = (s: Snippet) => {
     setEditingSnippet(s);
-    setTitle(s.title);
-    setDescription(s.description);
+    setTitle(getSnippetTitle(s, t));
+    setDescription(getSnippetDescription(s, t));
     setCommand(s.command);
     setCategory(s.category);
     setIsModalOpen(true);
@@ -170,14 +173,14 @@ export const SnippetsView: React.FC = () => {
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                      {snip.title}
+                      {getSnippetTitle(snip, t)}
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-medium">
-                      {snip.category}
+                      {t(`snippets.categories.${snip.category}`) || snip.category}
                     </span>
                   </div>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
-                    {snip.description || t('snippets.noDescription')}
+                    {getSnippetDescription(snip, t)}
                   </p>
                   <div className="mt-2.5 p-2 rounded-lg bg-zinc-50 dark:bg-black/40 border border-zinc-200 dark:border-zinc-800 font-mono text-[11px] text-zinc-800 dark:text-zinc-200 break-all">
                     {snip.command}
@@ -188,8 +191,8 @@ export const SnippetsView: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleCopy(snip)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       title={t('snippets.copyCmdTitle')}
-                      className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
                     >
                       {copiedId === snip.id ? (
                         <Check className="w-3.5 h-3.5 text-emerald-500" />
@@ -199,15 +202,15 @@ export const SnippetsView: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleOpenEdit(snip)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-blue-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       title={t('common.edit')}
-                      className="p-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => deleteSnippet(snip.id)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       title={t('common.delete')}
-                      className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -241,7 +244,7 @@ export const SnippetsView: React.FC = () => {
             </h3>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="block font-medium mb-1">{t('sftp.name')} *</label>
+                <label className="block font-medium mb-1">{t('snippets.name')} *</label>
                 <input
                   type="text"
                   required

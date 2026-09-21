@@ -16,6 +16,7 @@ import { TerminalInstance } from './TerminalInstance';
 import { SSHProfileModal } from './SSHProfileModal';
 import { useTranslation } from '../contexts/LanguageContext';
 import type { TerminalTheme, SSHProfile } from '../types';
+import { getSnippetTitle, getSnippetDescription } from '../utils/snippetUtils';
 
 export const TerminalView: React.FC = () => {
   const { t } = useTranslation();
@@ -354,7 +355,7 @@ export const TerminalView: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-xs text-zinc-800 dark:text-zinc-200 truncate">
-                      {snip.title}
+                      {getSnippetTitle(snip, t)}
                     </span>
                     <button
                       onClick={() => sendSnippetToTerminal(snip.command)}
@@ -365,7 +366,7 @@ export const TerminalView: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-2">
-                    {snip.description}
+                    {getSnippetDescription(snip, t)}
                   </p>
                   <div className="mt-1.5 p-1 rounded bg-zinc-100 dark:bg-black/40 border border-zinc-200 dark:border-zinc-700 font-mono text-[10px] text-zinc-700 dark:text-zinc-300 truncate">
                     {snip.command}
