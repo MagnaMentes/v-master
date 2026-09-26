@@ -71,6 +71,9 @@
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
+      "extendInfo": {
+        "NSLocalNetworkUsageDescription": "V-Master потребує доступу до локальної мережі для підключення до серверів Proxmox VE та віртуальних машин."
+      },
       "target": [
         {
           "target": "zip",

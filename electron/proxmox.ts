@@ -18,8 +18,11 @@ export class ProxmoxService {
       return existing;
     }
 
+    const isIpv4 = /^(\d{1,3}\.){3}\d{1,3}$/.test(config.host);
     const agent = new https.Agent({
       rejectUnauthorized: config.verifySsl ?? false,
+      keepAlive: true,
+      family: isIpv4 ? 4 : undefined,
     });
 
     const client = axios.create({
